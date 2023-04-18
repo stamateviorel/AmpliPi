@@ -1086,8 +1086,7 @@ class LMS(BaseStream):
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function becuase the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      # self.metadata_reader.connect()
-      meta_args = ["python3", "-c", f"from amplipi.lms_metadata import LMSMetadataReader; metaread = LMSMetadataReader(\"{self.name}\", {int(2)}); metaread.connect();"]
+      meta_args = ["python3", "-c", f"from amplipi.lms_metadata import LMSMetadataReader; LMSMetadataReader({self.name}, 2).connect();"]
       self.meta_proc = subprocess.Popen(args=meta_args)
 
     except Exception as exc:
@@ -1102,6 +1101,8 @@ class LMS(BaseStream):
     self.proc = None
 
   def info(self) -> models.SourceInfo:
+    # Opens and reads the metadata.json file every time the info def is called
+    # uses a file lock so that the file cannot be read while writing and vice/versa. If you let those processes run into eachother, there are errors
     try:
       meta_read = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8")
       fcntl.flock(meta_read, fcntl.LOCK_EX)
