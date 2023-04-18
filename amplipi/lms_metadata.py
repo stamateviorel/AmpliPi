@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """LMS Metadata"""
 
+import fcntl
 import json
 import time
 import requests
@@ -13,7 +14,6 @@ class LMSMetadataReader:
     self.IP = None
     self.meta_ref_rate = meta_ref
     self.connected = False
-    self.metadata = {'title': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'album_art': 'static/imgs/lms.png'}
 
 
   def connect(self):
@@ -40,7 +40,7 @@ class LMSMetadataReader:
 
     while self.connected == False:
       try:
-        player_json = {"id": 1,	"method": "slim.request",	"params": ["Steve Live Tester", ["players", "-", 100, "playerid"]]}
+        player_json = {"id": 1,	"method": "slim.request",	"params": [self.player_name, ["players", "-", 100, "playerid"]]}
         player_info = requests.get(f'http://{self.IP}:9000/jsonrpc.js', json=player_json, timeout=10)
         player_load = json.loads(player_info.text)
         players = player_load['result']['players_loop']
@@ -50,17 +50,17 @@ class LMSMetadataReader:
         for player in players:
           connected = player['connected']
           if connected and player['name'] == self.player_name:
-            print(f"Connected to: {player['name']}")
+            print(f"Connected to: {player['name']}", flush = True)
             self.connected = True
           else:
-            print(f"Skipped connection to: '{player['name']}'\nReason: expected player is called '{self.player_name}'")
+            print(f"Skipped connection to: '{player['name']}'\nReason: expected player is called '{self.player_name}'", flush = True)
             time.sleep(0.1)
       except:
         # When first creating an LMS stream, there can be random errors that will close the while loop
         # typically when asking the player for info when there isn't a player linked to the stream yet
-        None
+        pass
 
-    while self.connected == True:
+    while True:
       track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
       track_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=200)
       track_load = json.loads(track_info.text)
@@ -85,33 +85,49 @@ class LMSMetadataReader:
         x += 1
 
       meta = {
-        'title': 'Loading...',
+        'track': 'Loading...',
         'artist': 'Loading...',
         'album': 'Loading...',
-        'album_art': 'static/imgs/lms.png'
+        'image_url': 'static/imgs/lms.png'
        }
 
       if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio":
-        meta["title"] = track_data["title"]
+        meta["track"] = track_data["title"]
         meta['artist'] = None
         meta['album'] = song_data['remote_title']
-        meta["album_art"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
-        # meta['album_art'] = 'static/imgs/lms.png'
+        meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
+        # meta['image_url'] = 'static/imgs/lms.png'
         print(f"http://{self.IP}:9000/music/cover.jpg?id={song_data['coverid']}")
 
-      elif song_data['type'] == "MP3 (Pandora)":
+      if song_data['type'] == "MP3 (Pandora)":
         try:
-          meta["title"] = song_data["title"]
+          meta["track"] = song_data["title"]
           meta["artist"] = song_data["artist"]
           meta["album"] = song_data["album"]
-          meta["album_art"] = song_data["artwork_url"]
+          meta["image_url"] = song_data["artwork_url"]
         except KeyError:
           # Sometimes, KeyError will occur when switching to pandora from a different stream type since the json that LMS sends is formatted differently
           print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
-          meta["title"] = song_data["title"]
-          meta["album_art"] = song_data["artwork_url"]
+          meta["track"] = song_data["title"]
+          meta["image_url"] = song_data["artwork_url"]
 
-        self.metadata = meta
-        print(f"Metadata: {meta}")
+      f = open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8')
+      try:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        json.dump(meta, f, indent = 2)
+      finally:
+        fcntl.flock(f, fcntl.LOCK_UN)
+        f.close()
+
+
+        # with open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8") as y:
+        #   load = json.loads(y.read())
+        #   print(f"LOAD: {load}")
+        #   print(f"Track: {load['track']}")
+        #   print(f"Album: {load['album']}")
+        #   print(f"Artist: {load['artist']}")
+      print("END", flush = True)
       time.sleep(self.meta_ref_rate)
+
+# LMSMetadataReader("LMS3", 2).connect()

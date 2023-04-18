@@ -29,6 +29,7 @@ import subprocess
 import time
 from typing import Union, Optional, List
 import threading
+import fcntl
 
 import ast
 import json
@@ -39,7 +40,7 @@ import hashlib # md5 for string -> MAC generation
 from amplipi.mpris import MPRIS
 from amplipi import models
 from amplipi import utils
-from streams.lms_metadata import LMSMetadataReader
+from amplipi.lms_metadata import LMSMetadataReader
 
 # We use Popen for long running process control this error is not useful:
 # pylint: disable=consider-using-with
@@ -1019,7 +1020,11 @@ class LMS(BaseStream):
   def __init__(self, name: str, server: Optional[str] = None, disabled: bool = False, mock: bool = False):
     super().__init__('lms', name, disabled=disabled, mock=mock)
     self.server : Optional[str] = server
-    self.metadata_reader = LMSMetadataReader(self.name, 2)
+    self.meta_proc : Optional[subprocess.Popen] = None
+    self.meta = {'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}
+    f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w")
+    json.dump(self.meta, f, indent = 2)
+    f.close()
 
   def reconfig(self, **kwargs):
     reconnect_needed = False
@@ -1027,7 +1032,7 @@ class LMS(BaseStream):
       self.disabled = kwargs['disabled']
     if 'name' in kwargs and kwargs['name'] != self.name:
       self.name = kwargs['name']
-      self.metadata_reader = LMSMetadataReader(self.name, 2)
+      # self.metadata_reader = LMSMetadataReader(self.name, 2)
       reconnect_needed = True
     if 'server' in kwargs and kwargs['server'] != self.server:
       self.server = kwargs['server']
@@ -1081,7 +1086,9 @@ class LMS(BaseStream):
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function becuase the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      self.metadata_reader.connect()
+      # self.metadata_reader.connect()
+      meta_args = ["python3", "-c", f"from amplipi.lms_metadata import LMSMetadataReader; metaread = LMSMetadataReader(\"{self.name}\", {int(2)}); metaread.connect();"]
+      self.meta_proc = subprocess.Popen(args=meta_args)
 
     except Exception as exc:
       print(f'error starting lms: {exc}')
@@ -1089,18 +1096,26 @@ class LMS(BaseStream):
   def disconnect(self):
     if self._is_running():
       self.proc.kill()
-    self.metadata_reader.connected = False
     self._disconnect()
+    self.meta_proc.terminate()
+    self.meta_proc = None
     self.proc = None
 
   def info(self) -> models.SourceInfo:
+    try:
+      meta_read = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8")
+      fcntl.flock(meta_read, fcntl.LOCK_EX)
+      self.meta = json.loads(meta_read.read())
+    finally:
+      fcntl.flock(meta_read, fcntl.LOCK_UN)
+      meta_read.close()
     source = models.SourceInfo(
       name=self.full_name(),
       state=self.state,
-      img_url= self.metadata_reader.metadata['album_art'],
-      track= self.metadata_reader.metadata['title'],
-      album= self.metadata_reader.metadata['album'],
-      artist= self.metadata_reader.metadata['artist']
+      img_url= self.meta['image_url'],
+      track= self.meta['track'],
+      album= self.meta['album'],
+      artist= self.meta['artist']
     )
     return source
 
