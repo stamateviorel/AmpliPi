@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """LMS Metadata"""
 
+import argparse
 import fcntl
 import json
 import time
@@ -16,7 +17,6 @@ class LMSMetadataReader:
     self.meta_ref_rate = meta_ref
     self.connected = False
 
-
   def connect(self):
     """Discovers LMS Player and then requests metadata repetitively"""
     x = 0
@@ -24,10 +24,13 @@ class LMSMetadataReader:
     # Originally this used a port scanner, but LMS servers aren't visible to port scanners by default so it ended up just brute force scanning all IPS regardless
     # The request time gets longer each time in case the server is laggy, but it goes quick initally so that the scan takes the least amount of time
     reqtime = 0.001
-    while self.IP is None and reqtime < 100:
+    while self.IP is None:
       if x > 256:
         x = 0
-        reqtime = reqtime * 10
+        if reqtime < 10:
+          reqtime = reqtime * 10
+        else:
+          reqtime = 0.001
       try:
         # You can use the player name in place of the MAC address for all LMS requests, this one just asks if the ip has a running player of a given name
         # It checks by name just so that you don't get the wrong metadata in cases where you have multiple LMS Streams on a single device
@@ -35,9 +38,9 @@ class LMSMetadataReader:
         track_info = requests.post(f'http://192.168.0.{x}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=reqtime)
         track_load = json.loads(track_info.text)
         stream_name = track_load['result']['player_name']
-        print(f"This host DOES have an LMS Client: 192.168.0.{x} <---------------")
-        print(f"stream_name: {stream_name}")
-        print(f"player_name: {self.player_name}")
+        print(f"This host DOES have an LMS Client: 192.168.0.{x} <---------------", flush=True)
+        print(f"stream_name: {stream_name}", flush=True)
+        print(f"player_name: {self.player_name}", flush=True)
         if self.player_name == stream_name:
           self.IP = f"192.168.0.{x}"
       except:
@@ -102,7 +105,7 @@ class LMSMetadataReader:
         meta['album'] = song_data['remote_title']
         meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
         # meta['image_url'] = 'static/imgs/lms.png'
-        print(f"http://{self.IP}:9000/music/cover.jpg?id={song_data['coverid']}")
+        print(f"http://{self.IP}:9000/music/cover.jpg?id={song_data['coverid']}", flush=True)
 
       # Pandora has a different formatting for its metadata, and is singled out
       if song_data['type'] == "MP3 (Pandora)":
@@ -131,3 +134,12 @@ class LMSMetadataReader:
 
       # a sleep equal to the meta_ref_rate, that way the metadata refreshes on a set schedule while looping instead of just doing it at all times always
       time.sleep(self.meta_ref_rate)
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='LMS Metadata')
+    parser.add_argument('--name', type=str, required=True, help='The name of the LMS Player')
+    parser.add_argument('--ref', type=int, default=2, help='The frequency of metadata refresh cycles')
+    args = parser.parse_args()
+
+    LMSMetadataReader(args.name, args.ref).connect()

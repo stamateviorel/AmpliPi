@@ -1022,9 +1022,6 @@ class LMS(BaseStream):
     self.server : Optional[str] = server
     self.meta_proc : Optional[subprocess.Popen] = None
     self.meta = {'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}
-    f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w")
-    json.dump(self.meta, f, indent = 2)
-    f.close()
 
   def reconfig(self, **kwargs):
     reconnect_needed = False
@@ -1048,9 +1045,14 @@ class LMS(BaseStream):
     """ Connect a squeezelite output to a given audio source
     This will create a LMS client based on the given name
     """
+    f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w")
+    json.dump(self.meta, f, indent = 2)
+    f.close()
+    print("STEP 1 ----------------------------------------------------------")
     if self.mock:
       self._connect(src)
       return
+    print("STEP 2 ----------------------------------------------------------")
     try:
       # Make the (per-source) config directory
       src_config_folder = f'{utils.get_folder("config")}/srcs/{src}'
@@ -1083,11 +1085,14 @@ class LMS(BaseStream):
 
       self.proc = subprocess.Popen(args=lms_args)
       self._connect(src)
+      print("STEP 3 ----------------------------------------------------------")
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function becuase the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      meta_args = ["python3", "-c", f"from amplipi.lms_metadata import LMSMetadataReader; LMSMetadataReader({self.name}, 2).connect();"]
+      meta_args = ['python3', 'amplipi/lms_metadata.py', '--name', self.name]
       self.meta_proc = subprocess.Popen(args=meta_args)
+      print(f"POLL: {self.meta_proc.poll()}")
+      print("STEP 4 ----------------------------------------------------------")
 
     except Exception as exc:
       print(f'error starting lms: {exc}')
