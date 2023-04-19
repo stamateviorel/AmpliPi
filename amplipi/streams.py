@@ -1104,6 +1104,7 @@ class LMS(BaseStream):
     self.meta_proc.terminate()
     self.meta_proc = None
     self.proc = None
+    os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
 
   def info(self) -> models.SourceInfo:
     # Opens and reads the metadata.json file every time the info def is called

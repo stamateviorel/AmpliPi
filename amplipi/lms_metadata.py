@@ -19,6 +19,9 @@ class LMSMetadataReader:
 
   def connect(self):
     """Discovers LMS Player and then requests metadata repetitively"""
+    f = open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8')
+    json.dump({'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}, f, indent = 2)
+    f.close()
     x = 0
     # Loops through all available IPS, making requests to check for LMS Clients
     # Originally this used a port scanner, but LMS servers aren't visible to port scanners by default so it ended up just brute force scanning all IPS regardless
