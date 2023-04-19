@@ -136,10 +136,9 @@ class LMSMetadataReader:
       time.sleep(self.meta_ref_rate)
 
 if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='LMS Metadata')
+  parser.add_argument('--name', type=str, required=True, help='The name of the LMS Player')
+  parser.add_argument('--ref', type=int, default=2, help='The frequency of metadata refresh cycles')
+  args = parser.parse_args()
 
-    parser = argparse.ArgumentParser(description='LMS Metadata')
-    parser.add_argument('--name', type=str, required=True, help='The name of the LMS Player')
-    parser.add_argument('--ref', type=int, default=2, help='The frequency of metadata refresh cycles')
-    args = parser.parse_args()
-
-    LMSMetadataReader(args.name, args.ref).connect()
+  LMSMetadataReader(args.name, args.ref).connect()
