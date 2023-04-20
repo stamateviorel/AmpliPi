@@ -6,16 +6,18 @@ import fcntl
 import json
 import time
 import requests
+from typing import Optional
 
 class LMSMetadataReader:
   """A class for getting metadata from a Logitech Media Server."""
 
   # meta_ref is probably an unneccessary variable to pass as an arg since it's obscured from the user, but we can eventually make it an optional setting for the user
-  def __init__(self, name: str, meta_ref: int):
+  def __init__(self, name: str, meta_ref: Optional[int] = 2, dump: Optional[bool] = False):
     self.player_name = name
     self.IP = None
     self.meta_ref_rate = meta_ref
     self.connected = False
+    self.dump = dump
 
   def connect(self):
     """Discovers LMS Player and then requests metadata repetitively"""
@@ -137,6 +139,14 @@ class LMSMetadataReader:
         fcntl.flock(f, fcntl.LOCK_UN)
         f.close()
 
+      if self.dump:
+        f = open(f"{self.player_name}_track_raw.json", "w")
+        json.dump(track_load, f, indent = 2)
+        f.close()
+        f = open(f"{self.player_name}_song_raw.json", "w")
+        json.dump(song_load, f, indent = 2)
+        f.close()
+
       # a sleep equal to the meta_ref_rate, that way the metadata refreshes on a set schedule while looping instead of just doing it at all times always
       time.sleep(self.meta_ref_rate)
 
@@ -144,6 +154,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='LMS Metadata')
   parser.add_argument('--name', type=str, required=True, help='The name of the LMS Player')
   parser.add_argument('--ref', type=int, default=2, help='The frequency of metadata refresh cycles')
+  parser.add_argument('--dump', action='store_true', help="""Create raw json dumps directly from the LMS server,
+                      creates two files, {player name}_track_raw.json and {player name}_song_raw.json in the main directory""")
   args = parser.parse_args()
 
-  LMSMetadataReader(args.name, args.ref).connect()
+  LMSMetadataReader(args.name, args.ref, args.dump).connect()
