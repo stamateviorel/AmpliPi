@@ -40,7 +40,6 @@ import hashlib # md5 for string -> MAC generation
 from amplipi.mpris import MPRIS
 from amplipi import models
 from amplipi import utils
-from amplipi.lms_metadata import LMSMetadataReader
 
 # We use Popen for long running process control this error is not useful:
 # pylint: disable=consider-using-with
@@ -1049,11 +1048,9 @@ class LMS(BaseStream):
     f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w")
     json.dump(self.meta, f, indent = 2)
     f.close()
-    print("STEP 1 ----------------------------------------------------------")
     if self.mock:
       self._connect(src)
       return
-    print("STEP 2 ----------------------------------------------------------")
     try:
       # Make the (per-source) config directory
       src_config_folder = f'{utils.get_folder("config")}/srcs/{src}'
@@ -1086,14 +1083,11 @@ class LMS(BaseStream):
 
       self.proc = subprocess.Popen(args=lms_args)
       self._connect(src)
-      print("STEP 3 ----------------------------------------------------------")
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function becuase the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      meta_args = ['python3', 'amplipi/lms_metadata.py', '--name', self.name]
+      meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name]
       self.meta_proc = subprocess.Popen(args=meta_args)
-      print(f"POLL: {self.meta_proc.poll()}")
-      print("STEP 4 ----------------------------------------------------------")
 
     except Exception as exc:
       print(f'error starting lms: {exc}')
