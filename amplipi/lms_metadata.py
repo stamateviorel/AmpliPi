@@ -43,13 +43,9 @@ class LMSMetadataReader:
         track_info = requests.post(f'http://192.168.0.{x}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=reqtime)
         track_load = json.loads(track_info.text)
         stream_name = track_load['result']['player_name']
-        print(f"This host DOES have an LMS Client: 192.168.0.{x} <---------------", flush=True)
-        print(f"stream_name: {stream_name}", flush=True)
-        print(f"player_name: {self.player_name}", flush=True)
         if self.player_name == stream_name:
           self.IP = f"192.168.0.{x}"
       except:
-        print(f"This host has no LMS Client: 192.168.0.{x}")
         x+=1
 
     # When not connected, search for player to connect to by the proper name
@@ -63,10 +59,8 @@ class LMSMetadataReader:
         for player in players:
           connected = player['connected']
           if connected and player['name'] == self.player_name:
-            print(f"Connected to: {player['name']}", flush = True)
             self.connected = True
           else:
-            print(f"Skipped connection to: '{player['name']}'\nReason: expected player is called '{self.player_name}'", flush = True)
             time.sleep(0.1)
       except:
         # When first creating an LMS stream, there can be random errors that will close the while loop

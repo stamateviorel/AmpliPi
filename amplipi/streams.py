@@ -1017,6 +1017,7 @@ class FMRadio(BaseStream):
 
 class LMS(BaseStream):
   """ An LMS Stream using squeezelite"""
+  # TODO: Add support for squeezelite commands: play/pause, skip, etc.
   def __init__(self, name: str, server: Optional[str] = None, disabled: bool = False, mock: bool = False):
     super().__init__('lms', name, disabled=disabled, mock=mock)
     self.server : Optional[str] = server
