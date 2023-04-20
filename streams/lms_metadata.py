@@ -137,10 +137,10 @@ class LMSMetadataReader:
         f.close()
 
       if self.dump:
-        f = open(f"{self.player_name}_track_raw.json", "w")
+        f = open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w")
         json.dump(track_load, f, indent = 2)
         f.close()
-        f = open(f"{self.player_name}_song_raw.json", "w")
+        f = open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w")
         json.dump(song_load, f, indent = 2)
         f.close()
 
