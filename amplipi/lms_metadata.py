@@ -68,14 +68,17 @@ class LMSMetadataReader:
         pass
 
     while self.connected:
-      track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
-      track_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=200)
-      track_load = json.loads(track_info.text)
+      try:
+        track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
+        track_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=200)
+        track_load = json.loads(track_info.text)
 
-      track_id = track_load["result"]["playlist_loop"][0]["id"]
-      song_json = {"id":2,"method":"slim.request","params":[ self.player_name, ["songinfo","-",100,f"track_id:{track_id}"]]}
-      song_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=song_json, timeout=200)
-      song_load = json.loads(song_info.text)
+        track_id = track_load["result"]["playlist_loop"][0]["id"]
+        song_json = {"id":2,"method":"slim.request","params":[ self.player_name, ["songinfo","-",100,f"track_id:{track_id}"]]}
+        song_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=song_json, timeout=200)
+        song_load = json.loads(song_info.text)
+      except:
+        print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
       x = 0
       song_data = {}
