@@ -101,7 +101,7 @@ class LMSMetadataReader:
         'image_url': 'static/imgs/lms.png'
        }
 
-      if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio":
+      if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio" or song_data['type'] == "TEXT/X-JSON Radio":
         try:
           meta["track"] = track_data["title"]
           meta['artist'] = None
