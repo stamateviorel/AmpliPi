@@ -116,7 +116,7 @@ class LMSMetadataReader:
           meta['image_url'] = 'static/imgs/lms.png'
 
       # Pandora and Spotify have a different formatting for their metadata than radio streams
-      elif song_data['type'] == "MP3 (Pandora)" or "Ogg Vorbis (Spotify)":
+      elif song_data['type'] == "MP3 (Pandora)" or song_data['type'] == "Ogg Vorbis (Spotify)":
         try:
           meta["track"] = song_data["title"]
           meta["artist"] = song_data["artist"]
