@@ -103,15 +103,20 @@ class LMSMetadataReader:
        }
 
       if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio":
-        meta["track"] = track_data["title"]
-        meta['artist'] = None
-        meta['album'] = song_data['remote_title']
-        meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
-        # meta['image_url'] = 'static/imgs/lms.png'
-        print(f"http://{self.IP}:9000/music/cover.jpg?id={song_data['coverid']}", flush=True)
+        try:
+          meta["track"] = track_data["title"]
+          meta['artist'] = None
+          meta['album'] = song_data['remote_title']
+          meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
+        except KeyError:
+          # Sometimes, KeyError will occur when switching from pandora to a different stream type since the json that LMS sends is formatted differently
+          print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
-      # Pandora has a different formatting for its metadata, and is singled out
-      if song_data['type'] == "MP3 (Pandora)":
+          meta["track"] = song_data["title"]
+          meta['image_url'] = 'static/imgs/lms.png'
+
+      # Pandora and Spotify have a different formatting for their metadata than radio streams
+      elif song_data['type'] == "MP3 (Pandora)" or "Ogg Vorbis (Spotify)":
         try:
           meta["track"] = song_data["title"]
           meta["artist"] = song_data["artist"]
@@ -123,9 +128,6 @@ class LMSMetadataReader:
 
           meta["track"] = song_data["title"]
           meta["image_url"] = song_data["artwork_url"]
-
-        #TODO: test with spotty client for LMS, I haven't been able to get that working on my local machine yet to see if that has abnormal metadata formatting
-
       # File locking so to reduce errors, without locks here and on the read cycle you can sometimes read while writing, which will read an empty file and crash the stream
       f = open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8')
       try:
