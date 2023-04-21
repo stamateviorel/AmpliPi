@@ -1085,7 +1085,7 @@ class LMS(BaseStream):
       self._connect(src)
 
       # TODO: Add metadata support? This may have to watch the output log?
-      # At the end of the connect function becuase the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
+      # At the end of the connect function because the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
       meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name]
       self.meta_proc = subprocess.Popen(args=meta_args)
 

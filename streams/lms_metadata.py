@@ -2,10 +2,12 @@
 """LMS Metadata"""
 
 import argparse
+import re
 import fcntl
 import json
 import time
 import requests
+import subprocess
 from typing import Optional
 
 class LMSMetadataReader:
@@ -25,28 +27,13 @@ class LMSMetadataReader:
     json.dump({'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}, f, indent = 2)
     f.close()
     x = 0
-    # Loops through all available IPS, making requests to check for LMS Clients
-    # Originally this used a port scanner, but LMS servers aren't visible to port scanners by default so it ended up just brute force scanning all IPS regardless
-    # The request time gets longer each time in case the server is laggy, but it goes quick initally so that the scan takes the least amount of time
-    reqtime = 0.001
-    while self.IP is None:
-      if x > 256:
-        x = 0
-        if reqtime < 10:
-          reqtime = reqtime * 10
-        else:
-          reqtime = 0.001
-      try:
-        # You can use the player name in place of the MAC address for all LMS requests, this one just asks if the ip has a running player of a given name
-        # It checks by name just so that you don't get the wrong metadata in cases where you have multiple LMS Streams on a single device
-        track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
-        track_info = requests.post(f'http://192.168.0.{x}:9000/jsonrpc.js 2>/dev/null', json=track_json, timeout=reqtime)
-        track_load = json.loads(track_info.text)
-        stream_name = track_load['result']['player_name']
-        if self.player_name == stream_name:
-          self.IP = f"192.168.0.{x}"
-      except:
-        x+=1
+
+    # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_servers.c
+    IPFind = subprocess.run('streams/find_server', capture_output=True, text=True)
+    # Uses re.search because find_servers.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
+    IPFind = re.search(r"\((.*?)\)", IPFind.stdout)
+    self.IP = IPFind.group(1)
+
 
     # When not connected, search for player to connect to by the proper name
     while not self.connected:
@@ -65,6 +52,7 @@ class LMSMetadataReader:
       except:
         # When first creating an LMS stream, there can be random errors that will close the while loop
         # typically when asking the player for info when there isn't a player linked to the stream yet
+        print("FAIL")
         pass
 
     while self.connected:
@@ -108,7 +96,7 @@ class LMSMetadataReader:
           meta['album'] = song_data['remote_title']
           meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
         except KeyError:
-          # Sometimes, KeyError will occur when switching from pandora to a different stream type since the json that LMS sends is formatted differently
+          # Sometimes, KeyError will occur when switching from Spotify/Pandora to a different stream type since the json that LMS sends is formatted differently
           print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
           meta["track"] = song_data["title"]
@@ -122,7 +110,7 @@ class LMSMetadataReader:
           meta["album"] = song_data["album"]
           meta["image_url"] = song_data["artwork_url"]
         except KeyError:
-          # Sometimes, KeyError will occur when switching to pandora from a different stream type since the json that LMS sends is formatted differently
+          # Sometimes, KeyError will occur when switching to Spotify/Pandora from a different stream type since the json that LMS sends is formatted differently
           print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
           meta["track"] = song_data["title"]
