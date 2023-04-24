@@ -129,7 +129,7 @@ class LMSMetadataReader:
           json.dump(song_load, f, indent = 2)
           f.close()
       except Exception as e:
-        print(f"{e}, trying again in {self.meta_ref_rate} seconds...")
+        print(f"Error: {e}, trying again in {self.meta_ref_rate} seconds...")
 
       # a sleep equal to the meta_ref_rate, that way the metadata refreshes on a set schedule while looping instead of just doing it at all times always
       time.sleep(self.meta_ref_rate)
