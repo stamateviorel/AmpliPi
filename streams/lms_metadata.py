@@ -28,11 +28,10 @@ class LMSMetadataReader:
     f.close()
     x = 0
 
-    # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_servers.c
+    # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_server.c
     IPFind = subprocess.run('streams/find_server', capture_output=True, text=True)
-    # Uses re.search because find_servers.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
-    IPFind = re.search(r"\((.*?)\)", IPFind.stdout)
-    self.IP = IPFind.group(1)
+    # Uses re.search because find_server.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
+    self.IP = re.search(r"\((.*?)\)", IPFind.stdout).group(1)
 
 
     # When not connected, search for player to connect to by the proper name
@@ -65,72 +64,72 @@ class LMSMetadataReader:
         song_json = {"id":2,"method":"slim.request","params":[ self.player_name, ["songinfo","-",100,f"track_id:{track_id}"]]}
         song_info = requests.post(f'http://{self.IP}:9000/jsonrpc.js 2>/dev/null', json=song_json, timeout=200)
         song_load = json.loads(song_info.text)
-      except:
-        print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
 
-      x = 0
-      song_data = {}
-      for item in song_load["result"]["songinfo_loop"]:
-        for info in item:
-          song_data[info] = song_load['result']['songinfo_loop'][x][info]
-        x += 1
+        x = 0
+        song_data = {}
+        for item in song_load['result']['songinfo_loop']:
+          for info in item:
+            song_data[info] = song_load['result']['songinfo_loop'][x][info]
+          x += 1
 
-      x = 0
-      track_data = {}
-      for item in track_load["result"]["playlist_loop"]:
-        for info in item:
-          track_data[info] = track_load['result']['playlist_loop'][x][info]
-        x += 1
+        x = 0
+        track_data = {}
+        for item in track_load['result']['playlist_loop']:
+          for info in item:
+            track_data[info] = track_load['result']['playlist_loop'][x][info]
+          x += 1
 
-      meta = {
-        'track': 'Loading...',
-        'artist': 'Loading...',
-        'album': 'Loading...',
-        'image_url': 'static/imgs/lms.png'
-       }
+        meta = {
+          'track': 'Loading...',
+          'artist': 'Loading...',
+          'album': 'Loading...',
+          'image_url': 'static/imgs/lms.png'
+         }
 
-      if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio" or song_data['type'] == "TEXT/X-JSON Radio":
+        if song_data['type'] == "MP3 Radio" or song_data['type'] == "AAC Radio" or song_data['type'] == "Radio" or song_data['type'] == "TEXT/X-JSON Radio":
+          try:
+            meta["track"] = track_data["title"]
+            meta['artist'] = None
+            meta['album'] = song_data['remote_title']
+            meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
+          except KeyError:
+            # Sometimes, KeyError will occur when switching from Spotify/Pandora to a different stream type since the json that LMS sends is formatted differently
+            print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
+
+            meta["track"] = song_data["title"]
+            meta['image_url'] = 'static/imgs/lms.png'
+
+        # Pandora and Spotify have a different formatting for their metadata than radio streams
+        elif song_data['type'] == "MP3 (Pandora)" or song_data['type'] == "Ogg Vorbis (Spotify)":
+          try:
+            meta["track"] = song_data["title"]
+            meta["artist"] = song_data["artist"]
+            meta["album"] = song_data["album"]
+            meta["image_url"] = song_data["artwork_url"]
+          except KeyError:
+            # Sometimes, KeyError will occur when switching to Spotify/Pandora from a different stream type since the json that LMS sends is formatted differently
+            print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
+
+            meta["track"] = song_data["title"]
+            meta["image_url"] = song_data["artwork_url"]
+        # File locking so to reduce errors, without locks here and on the read cycle you can sometimes read while writing, which will read an empty file and crash the stream
+        f = open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8')
         try:
-          meta["track"] = track_data["title"]
-          meta['artist'] = None
-          meta['album'] = song_data['remote_title']
-          meta["image_url"] = f"http://{self.IP}:9000/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
-        except KeyError:
-          # Sometimes, KeyError will occur when switching from Spotify/Pandora to a different stream type since the json that LMS sends is formatted differently
-          print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
+          fcntl.flock(f, fcntl.LOCK_EX)
+          json.dump(meta, f, indent = 2)
+        finally:
+          fcntl.flock(f, fcntl.LOCK_UN)
+          f.close()
 
-          meta["track"] = song_data["title"]
-          meta['image_url'] = 'static/imgs/lms.png'
-
-      # Pandora and Spotify have a different formatting for their metadata than radio streams
-      elif song_data['type'] == "MP3 (Pandora)" or song_data['type'] == "Ogg Vorbis (Spotify)":
-        try:
-          meta["track"] = song_data["title"]
-          meta["artist"] = song_data["artist"]
-          meta["album"] = song_data["album"]
-          meta["image_url"] = song_data["artwork_url"]
-        except KeyError:
-          # Sometimes, KeyError will occur when switching to Spotify/Pandora from a different stream type since the json that LMS sends is formatted differently
-          print(f"KeyError, trying again in {self.meta_ref_rate} seconds...")
-
-          meta["track"] = song_data["title"]
-          meta["image_url"] = song_data["artwork_url"]
-      # File locking so to reduce errors, without locks here and on the read cycle you can sometimes read while writing, which will read an empty file and crash the stream
-      f = open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8')
-      try:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        json.dump(meta, f, indent = 2)
-      finally:
-        fcntl.flock(f, fcntl.LOCK_UN)
-        f.close()
-
-      if self.dump:
-        f = open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w")
-        json.dump(track_load, f, indent = 2)
-        f.close()
-        f = open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w")
-        json.dump(song_load, f, indent = 2)
-        f.close()
+        if self.dump:
+          f = open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w")
+          json.dump(track_load, f, indent = 2)
+          f.close()
+          f = open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w")
+          json.dump(song_load, f, indent = 2)
+          f.close()
+      except Exception as e:
+        print(f"{e}, trying again in {self.meta_ref_rate} seconds...")
 
       # a sleep equal to the meta_ref_rate, that way the metadata refreshes on a set schedule while looping instead of just doing it at all times always
       time.sleep(self.meta_ref_rate)
