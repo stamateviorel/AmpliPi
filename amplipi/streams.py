@@ -1107,7 +1107,12 @@ class LMS(BaseStream):
       with open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8") as meta_read:
         self.meta = json.loads(meta_read.read())
     except:
-      pass
+      self.meta = {
+        'track': 'Trying again shortly...',
+        'album': 'Make sure your lms player is connected to this source',
+        'artist': 'Error: Could Not Find LMS Server',
+        'image_url': 'static/imgs/lms.png'
+      }
 
     source = models.SourceInfo(
       name=self.full_name(),
