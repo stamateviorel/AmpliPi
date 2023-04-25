@@ -29,7 +29,6 @@ import subprocess
 import time
 from typing import Union, Optional, List
 import threading
-import fcntl
 
 import ast
 import json
@@ -1104,12 +1103,11 @@ class LMS(BaseStream):
   def info(self) -> models.SourceInfo:
     # Opens and reads the metadata.json file every time the info def is called
     # uses a file lock so that the file cannot be read while writing and vice/versa. If you let those processes run into eachother, there are errors
-    with open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8") as meta_read:
-      try:
-        fcntl.flock(meta_read, fcntl.LOCK_EX)
+    try:
+      with open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "r", encoding="utf-8") as meta_read:
         self.meta = json.loads(meta_read.read())
-      finally:
-        fcntl.flock(meta_read, fcntl.LOCK_UN)
+    except:
+      pass
 
     source = models.SourceInfo(
       name=self.full_name(),

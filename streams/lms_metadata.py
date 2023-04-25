@@ -3,7 +3,6 @@
 
 import argparse
 import re
-import fcntl
 import json
 import time
 import requests
@@ -16,29 +15,41 @@ class LMSMetadataReader:
   # meta_ref is probably an unneccessary variable to pass as an arg since it's obscured from the user, but we can eventually make it an optional setting for the user
   def __init__(self, name: str, meta_ref: Optional[int] = 2, dump: Optional[bool] = False):
     self.player_name = name
-    self.locale = None # locale replaces IP, it is a concatenation of both the IP and the port in {IP}:{port} format
+    self.locale = None # locale replaces IP, it is a concatenation of both the IP and the port in {IP}:{port} format. It may be more sensible to store both IP and Port separately, but this seems efficient for now.
     self.meta_ref_rate = meta_ref
-    self.connected = False
     self.dump = dump
 
+
+  def flatten(self, lms_info: dict) -> dict:
+    """ LMS returns data in a very verbose piecewise format to avoid name collisions,
+          this makes it easier to use, by disregarding possible collisions"""
+    x = 0
+    flat_data = {}
+    for item in lms_info:
+      for info in item:
+        flat_data[info] = lms_info[x][info]
+      x += 1
+    return flat_data
+
+
   def connect(self):
+    connected = False
     """Discovers LMS Player and then requests metadata repetitively"""
     with open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8') as f:
       json.dump({'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}, f, indent = 2)
     x = 0
 
-
     # When not connected, search for player to connect to by the proper name
-    while not self.connected:
+    while not connected:
       try:
         # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_server.c
         ip_find = subprocess.run(['streams/find_server'], capture_output=True, text=True)
         print(f'STDOUT: {ip_find.stdout}')
         # Uses re.search because find_server.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
         ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
-        print(f'IP: {ip}')
+        print(f'IP: {ip}', flush=True)
         port = re.search(r':(\d{4})', ip_find.stdout).group(1)
-        print(f'PORT: {port}')
+        print(f'PORT: {port}', flush=True)
         self.locale = f"{ip}:{port}"
 
 
@@ -56,11 +67,11 @@ class LMSMetadataReader:
       except Exception as e:
         # When first creating an LMS stream, there can be random errors that will close the while loop
         # typically when asking the player for info when there isn't a player linked to the stream yet
-        print(f"FAIL: {e}")
+        print(f"FAIL: {e}", flush=True)
         time.sleep(self.meta_ref_rate)
         pass
 
-    while self.connected:
+    while connected:
       try:
         track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
         track_info = requests.post(f'http://{self.locale}/jsonrpc.js 2>/dev/null', json=track_json, timeout=200)
@@ -71,19 +82,8 @@ class LMSMetadataReader:
         song_info = requests.post(f'http://{self.locale}/jsonrpc.js 2>/dev/null', json=song_json, timeout=200)
         song_load = json.loads(song_info.text)
 
-        x = 0
-        song_data = {}
-        for item in song_load['result']['songinfo_loop']:
-          for info in item:
-            song_data[info] = song_load['result']['songinfo_loop'][x][info]
-          x += 1
-
-        x = 0
-        track_data = {}
-        for item in track_load['result']['playlist_loop']:
-          for info in item:
-            track_data[info] = track_load['result']['playlist_loop'][x][info]
-          x += 1
+        song_data = self.flatten(song_load['result']['songinfo_loop'])
+        track_data = self.flatten(track_load['result']['playlist_loop'])
 
         meta = {
           'track': 'Loading...',
@@ -119,13 +119,11 @@ class LMSMetadataReader:
             meta["track"] = song_data["title"]
             meta["image_url"] = song_data["artwork_url"]
         # File locking so to reduce errors, without locks here and on the read cycle you can sometimes read while writing, which will read an empty file and crash the stream
-        with open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8') as f:
-          try:
-            fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+          with open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8') as f:
             json.dump(meta, f, indent = 2)
-          finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
-
+        except:
+          pass
         if self.dump:
           with open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w") as f:
             json.dump(track_load, f, indent = 2)
