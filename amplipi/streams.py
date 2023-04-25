@@ -1044,7 +1044,7 @@ class LMS(BaseStream):
     """ Connect a squeezelite output to a given audio source
     This will create a LMS client based on the given name
     """
-    f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w")
+    f = open(f"lms_{str(self.name).replace(' ', '_')}_metadata.json", "w", encoding="UTF-8")
     json.dump(self.meta, f, indent = 2)
     f.close()
     if self.mock:

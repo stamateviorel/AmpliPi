@@ -5,9 +5,9 @@ import argparse
 import re
 import json
 import time
-import requests
-import subprocess
 from typing import Optional
+import subprocess
+import requests
 
 class LMSMetadataReader:
   """A class for getting metadata from a Logitech Media Server."""
@@ -33,8 +33,8 @@ class LMSMetadataReader:
 
 
   def connect(self):
-    connected = False
     """Discovers LMS Player and then requests metadata repetitively"""
+    connected = False
     with open(f"lms_{str(self.player_name).replace(' ', '_')}_metadata.json", 'wt', encoding='utf-8') as f:
       json.dump({'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}, f, indent = 2)
     x = 0
@@ -43,7 +43,7 @@ class LMSMetadataReader:
     while not connected:
       try:
         # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_server.c
-        ip_find = subprocess.run(['bin/arm/find_lms_server'], capture_output=True, text=True)
+        ip_find = subprocess.run(['bin/arm/find_lms_server'], check=True, capture_output=True, text=True)
         print(f'STDOUT: {ip_find.stdout}')
         # Uses re.search because find_server.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
         ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
@@ -61,7 +61,7 @@ class LMSMetadataReader:
         for player in players:
           connected = player['connected']
           if connected and player['name'] == self.player_name:
-            self.connected = True
+            connected = True
           else:
             time.sleep(0.1)
       except Exception as e:
@@ -69,7 +69,6 @@ class LMSMetadataReader:
         # typically when asking the player for info when there isn't a player linked to the stream yet
         print(f"FAIL: {e}", flush=True)
         time.sleep(self.meta_ref_rate)
-        pass
 
     while connected:
       try:
@@ -125,9 +124,9 @@ class LMSMetadataReader:
         except:
           pass
         if self.dump:
-          with open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w") as f:
+          with open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w", encoding="UTF-8") as f:
             json.dump(track_load, f, indent = 2)
-          with open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w") as f:
+          with open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w", encoding="UTF-8") as f:
             json.dump(song_load, f, indent = 2)
       except Exception as e:
         print(f"Error: {e}, trying again in {self.meta_ref_rate} seconds...")
