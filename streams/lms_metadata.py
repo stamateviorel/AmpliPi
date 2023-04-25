@@ -43,7 +43,7 @@ class LMSMetadataReader:
     while not connected:
       try:
         # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_server.c
-        ip_find = subprocess.run(['streams/find_server'], capture_output=True, text=True)
+        ip_find = subprocess.run(['streams/find_lms_server'], capture_output=True, text=True)
         print(f'STDOUT: {ip_find.stdout}')
         # Uses re.search because find_server.c spits out as '{Hostname}:{port} ({IP})', so I scrape the data from inbetween the parentheses to get the IP
         ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
