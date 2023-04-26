@@ -1,5 +1,8 @@
 adafruit-circuitpython-rgb-display==3.11.0
 aiofiles==23.1.0
+bluezero==0.7.1
+dasbus==1.7
+dbus-python==1.3.2
 deepdiff==6.2.3
 fastapi==0.91.0
 fastapi-utils==0.2.1
@@ -11,6 +14,7 @@ netifaces==0.11.0
 numpy==1.21.6
 Pillow==9.4.0
 psutil==5.9.4
+PyGObject==3.42.2
 pylint==2.16.1
 pyserial==3.5
 pytest==7.2.1
