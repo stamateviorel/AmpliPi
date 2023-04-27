@@ -268,7 +268,7 @@ static void license(void) {
       "along with this program.  If not, see "
       "<http://www.gnu.org/licenses/>.\n\n"
       "The source is available from "
-      "https://github.com/ralph-irving/squeezelite\n");
+      "https://github.com/ralph-irving/squeezelite \n");
 }
 
 int main(int argc, char **argv) {
