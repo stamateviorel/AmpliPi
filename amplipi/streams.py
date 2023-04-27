@@ -1085,7 +1085,7 @@ class LMS(BaseStream):
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function because the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name]
+      meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name, '--debug']
       self.meta_proc = subprocess.Popen(args=meta_args)
 
     except Exception as exc:
@@ -1095,10 +1095,12 @@ class LMS(BaseStream):
     if self._is_running():
       self.proc.kill()
     self._disconnect()
-    self.meta_proc.terminate()
-    self.meta_proc = None
+    if self.meta_proc is not None:
+      self.meta_proc.terminate()
+      self.meta_proc = None
     self.proc = None
-    os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
+    if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata.json"):
+      os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
 
   def info(self) -> models.SourceInfo:
     # Opens and reads the metadata.json file every time the info def is called
