@@ -76,12 +76,12 @@
 
 int slimproto_discover(char *server_addr, int server_addr_len, int port,
                        unsigned int *jsonport, bool scan) {
-  int                sockfd;
-  int                try;
-  char              *packet;
-  int                pktlen;
-  int                pktidx;
-  char               arr[5][45];
+  int   sockfd;
+  int   try;
+  char *packet;
+  int   pktlen;
+  int   pktidx;
+  char(*arr)[45] = malloc(sizeof(arr) * 5);
   char              *t;
   unsigned int       l;
   char              *v;
@@ -216,15 +216,22 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
       char result[45];
       if (scan)
         sprintf(result, "%s:%u (%s)\n", server_name, *jsonport, server_addr);
+      printf("Result: %s", result);
       for (int x = 0; x < 5; x++) {
         if (result == arr[x]) {
           x = 6;
           try++;
+        } else if (x = 4) {
+          strcpy(arr[x], result);
+          try = 6;
         } else {
-          arr[x] = result;
-          try    = 1;
+          strcpy(arr[x], result);
+          try = 1;
         }
       }
+    }
+    for (int x = 0; x < 5; x++) {
+      printf("%s", arr[x]);
     }
   }
 
@@ -254,9 +261,13 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
   if (packet != NULL)
     free(packet);
 
+  if (arr != NULL) {
+    free(arr);
+  }
+
   DEBUGF("slimproto_discover: end\n");
 
-  return arr;
+  return serveraddr_len;
 }
 
 static void license(void) {
@@ -295,5 +306,5 @@ int main(int argc, char **argv) {
   VDEBUGF("main: slimproto_discover_scan: address:%s len:%d json:%u\n",
           slimserver_address, len, json);
 
-  return len;
+  return 0;
 }
