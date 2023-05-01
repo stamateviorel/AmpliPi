@@ -81,6 +81,7 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
   char              *packet;
   int                pktlen;
   int                pktidx;
+  char               arr[5][45];
   char              *t;
   unsigned int       l;
   char              *v;
@@ -212,13 +213,18 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
 
       serveraddr_len = strlen(server_addr);
 
-      /* Server(s) responded, so don't try again */
-      try = 5;
-
+      char result[45];
       if (scan)
-        printf("%s:%u (%s)\n", server_name, *jsonport, server_addr);
-      else
-        break; /* Return first server that replied */
+        sprintf(result, "%s:%u (%s)\n", server_name, *jsonport, server_addr);
+      for (int x = 0; x < 5; x++) {
+        if (result == arr[x]) {
+          x = 6;
+          try++;
+        } else {
+          arr[x] = result;
+          try    = 1;
+        }
+      }
     }
   }
 
@@ -250,7 +256,7 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
 
   DEBUGF("slimproto_discover: end\n");
 
-  return serveraddr_len;
+  return arr;
 }
 
 static void license(void) {
@@ -289,5 +295,5 @@ int main(int argc, char **argv) {
   VDEBUGF("main: slimproto_discover_scan: address:%s len:%d json:%u\n",
           slimserver_address, len, json);
 
-  return 0;
+  return len;
 }
