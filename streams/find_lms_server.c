@@ -76,12 +76,11 @@
 
 int slimproto_discover(char *server_addr, int server_addr_len, int port,
                        unsigned int *jsonport, bool scan) {
-  int   sockfd;
-  int   try;
-  char *packet;
-  int   pktlen;
-  int   pktidx;
-  char(*arr)[45] = malloc(sizeof(arr) * 5);
+  int                sockfd;
+  int                try;
+  char              *packet;
+  int                pktlen;
+  int                pktidx;
   char              *t;
   unsigned int       l;
   char              *v;
@@ -213,25 +212,13 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
 
       serveraddr_len = strlen(server_addr);
 
-      char result[45];
+      /* Server(s) responded, so don't try again */
+      try = 5;
+
       if (scan)
-        sprintf(result, "%s:%u (%s)\n", server_name, *jsonport, server_addr);
-      printf("Result: %s", result);
-      for (int x = 0; x < 5; x++) {
-        if (result == arr[x]) {
-          x = 6;
-          try++;
-        } else if (x = 4) {
-          strcpy(arr[x], result);
-          try = 6;
-        } else {
-          strcpy(arr[x], result);
-          try = 1;
-        }
-      }
-    }
-    for (int x = 0; x < 5; x++) {
-      printf("%s", arr[x]);
+        printf("%s:%u (%s)\n", server_name, *jsonport, server_addr);
+      else
+        break; /* Return first server that replied */
     }
   }
 
@@ -261,10 +248,6 @@ int slimproto_discover(char *server_addr, int server_addr_len, int port,
   if (packet != NULL)
     free(packet);
 
-  if (arr != NULL) {
-    free(arr);
-  }
-
   DEBUGF("slimproto_discover: end\n");
 
   return serveraddr_len;
@@ -285,7 +268,7 @@ static void license(void) {
       "along with this program.  If not, see "
       "<http://www.gnu.org/licenses/>.\n\n"
       "The source is available from "
-      "https://github.com/ralph-irving/squeezelite \n");
+      "https://github.com/ralph-irving/squeezelite\n");
 }
 
 int main(int argc, char **argv) {

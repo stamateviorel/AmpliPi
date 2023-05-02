@@ -1020,7 +1020,7 @@ class LMS(BaseStream):
     super().__init__('lms', name, disabled=disabled, mock=mock)
     self.server : Optional[str] = server
     self.meta_proc : Optional[subprocess.Popen] = None
-    self.meta = {'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'}
+    self.meta = {'artist': 'Loading...', 'album': 'If loading takes a long time,', 'track': 'consider adding hostname to stream config', 'image_url': 'static/imgs/lms.png'}
 
   def reconfig(self, **kwargs):
     reconnect_needed = False
@@ -1078,6 +1078,12 @@ class LMS(BaseStream):
           # NOTE: port 9000 is assumed
           server.replace('localhost', socket.gethostname())
         lms_args += [ '-s', server]
+
+        meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name, "--client", self.server]
+        self.meta_proc = subprocess.Popen(args=meta_args)
+      else:
+        meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name]
+        self.meta_proc = subprocess.Popen(args=meta_args)
       # TODO: allow port to be specified with server (embedding it in the server URL does not work)
 
       self.proc = subprocess.Popen(args=lms_args)
@@ -1085,8 +1091,7 @@ class LMS(BaseStream):
 
       # TODO: Add metadata support? This may have to watch the output log?
       # At the end of the connect function because the LMS stream needs to be fully initialized before it starts searching for metadata or you won't be able to connect the player
-      meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name, "--debug"]
-      self.meta_proc = subprocess.Popen(args=meta_args)
+
 
     except Exception as exc:
       print(f'error starting lms: {exc}')

@@ -14,8 +14,9 @@ class LMSMetadataReader:
   """A class for getting metadata from a Logitech Media Server."""
 
   # meta_ref is probably an unneccessary variable to pass as an arg since it's obscured from the user, but we can eventually make it an optional setting for the user
-  def __init__(self, name: str, meta_ref: Optional[int] = 2, debug: Optional[bool] = False):
+  def __init__(self, name: str, client: Optional[str], meta_ref: Optional[int] = 2, debug: Optional[bool] = False):
     self.player_name = name
+    self.client = client
     self.server = None # {ip}:{port}
     self.meta_ref_rate = meta_ref
     self.debug = debug
@@ -41,20 +42,25 @@ class LMSMetadataReader:
   def connect(self):
     """Discovers LMS Player and then requests metadata repetitively"""
     connected = False
-    self.replace({'track': 'Loading...', 'artist': 'Loading...', 'album': 'Loading...', 'image_url': 'static/imgs/lms.png'})
+    self.replace({'artist': 'Loading...', 'album': 'If loading takes a long time,', 'track': 'consider adding hostname to stream config', 'image_url': 'static/imgs/lms.png'})
 
     # When not connected, search for player to connect to by the proper name
     while not connected:
       try:
         # Much faster method of connecting to the metadata server using code from: https://github.com/ralph-irving/squeezelite/blob/master/tools/find_server.c
-        ip_find = subprocess.run(['bin/arm/find_lms_server'], check=True, capture_output=True, text=True)
-        # Uses regex because ip_find spits out as '{Hostname}:{port} ({ip})', data is then formatted to output ip and port
-        ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
-        port = re.search(r':(\d{4})', ip_find.stdout).group(1)
+        if self.client is not None:
+          ip = self.client
+          port = "9000"
+          self.server = f"{ip}:{port}"
+        else:
+          ip_find = subprocess.run(['bin/arm/find_lms_server'], check=True, capture_output=True, text=True)
+          # Uses regex because ip_find spits out as '{Hostname}:{port} ({ip})', data is then formatted to output ip and port
+          ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
+          port = re.search(r':(\d{4})', ip_find.stdout).group(1)
+          self.server = f"{ip}:{port}"
+
         if self.debug:
           print(f"Found LMS Server: {ip}:{port}", flush=True)
-        self.server = f"{ip}:{port}"
-
 
         player_json = {"id": 1,	"method": "slim.request",	"params": [self.player_name, ["players", "-", 100, "playerid"]]}
         player_info = requests.get(f'http://{self.server}/jsonrpc.js', json=player_json, timeout=200)
@@ -91,9 +97,9 @@ class LMSMetadataReader:
         track_data = self.flatten(track_load['result']['playlist_loop'])
 
         meta = {
-          'track': 'Loading...',
           'artist': 'Loading...',
-          'album': 'Loading...',
+          'album': 'If loading takes a long time,',
+          'track': 'consider adding hostname to stream config',
           'image_url': 'static/imgs/lms.png'
          }
 
@@ -145,9 +151,10 @@ class LMSMetadataReader:
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="LMS Metadata Reader - a script for finding an LMS player with a given name and extracting the name of the song, album, and artist as well as getting the album picture")
   parser.add_argument('--name', type=str, required=True, help='The name of the LMS Player')
+  parser.add_argument('--client', type=str, help='The name of the client running the LMS server', metavar="SERVER_ADDRESS")
   parser.add_argument('--ref', type=int, default=2, help='The frequency of metadata refresh cycles')
   parser.add_argument('--debug', action='store_true', help='''d''ebug mode, activates various console logs so that you can debug in the command line,
                       also creates json dumps in the main directory: {player name}_track_raw.json and {player name}_song_raw.json''')
   args = parser.parse_args()
 
-  LMSMetadataReader(args.name, args.ref, args.debug).connect()
+  LMSMetadataReader(args.name, args.client, args.ref, args.debug).connect()
