@@ -1027,6 +1027,8 @@ class LMS(BaseStream):
     if 'disabled' in kwargs:
       self.disabled = kwargs['disabled']
     if 'name' in kwargs and kwargs['name'] != self.name:
+      if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata.json"):
+        os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
       self.name = kwargs['name']
       reconnect_needed = True
     if 'server' in kwargs and kwargs['server'] != self.server:
