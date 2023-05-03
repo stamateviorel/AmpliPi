@@ -1028,7 +1028,6 @@ class LMS(BaseStream):
       self.disabled = kwargs['disabled']
     if 'name' in kwargs and kwargs['name'] != self.name:
       self.name = kwargs['name']
-      # self.metadata_reader = LMSMetadataReader(self.name, 2)
       reconnect_needed = True
     if 'server' in kwargs and kwargs['server'] != self.server:
       self.server = kwargs['server']

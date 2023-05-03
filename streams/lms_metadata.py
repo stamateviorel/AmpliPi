@@ -14,7 +14,7 @@ class LMSMetadataReader:
   """A class for getting metadata from a Logitech Media Server."""
 
   # meta_ref is probably an unneccessary variable to pass as an arg since it's obscured from the user, but we can eventually make it an optional setting for the user
-  def __init__(self, name: str, client: Optional[str], meta_ref: Optional[int] = 2, debug: Optional[bool] = False):
+  def __init__(self, name: str, client: Optional[str] = None, meta_ref: Optional[int] = 2, debug: Optional[bool] = False):
     self.player_name = name
     self.client = client
     self.server = None # {ip}:{port}
@@ -53,7 +53,7 @@ class LMSMetadataReader:
           port = "9000"
           self.server = f"{ip}:{port}"
         else:
-          ip_find = subprocess.run(['bin/arm/find_lms_server'], check=True, capture_output=True, text=True)
+          ip_find = subprocess.run(['streams/find_lms_server'], check=True, capture_output=True, text=True)
           # Uses regex because ip_find spits out as '{Hostname}:{port} ({ip})', data is then formatted to output ip and port
           ip = re.search(r'\((.*?)\)', ip_find.stdout).group(1)
           port = re.search(r':(\d{4})', ip_find.stdout).group(1)
