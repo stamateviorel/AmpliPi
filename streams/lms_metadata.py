@@ -122,12 +122,12 @@ class LMSMetadataReader:
     while connected:
       try:
         track_json = {"id": 1, "method": "slim.request", "params": [ self.player_name, ["status", "-",100] ]}
-        track_info = requests.post(f'http://{self.address}/jsonrpc.js 2>/dev/null', json=track_json, timeout=1000)
+        track_info = requests.post(f'http://{self.address}/jsonrpc.js', json=track_json, timeout=1000)
         track_load = json.loads(track_info.text)
 
         track_id = track_load["result"]["playlist_loop"][0]["id"]
         song_json = {"id":2,"method":"slim.request","params":[ self.player_name, ["songinfo","-",100,f"track_id:{track_id}"]]}
-        song_info = requests.post(f'http://{self.address}/jsonrpc.js 2>/dev/null', json=song_json, timeout=1000)
+        song_info = requests.post(f'http://{self.address}/jsonrpc.js', json=song_json, timeout=1000)
         song_load = json.loads(song_info.text)
 
         song_data = self.flatten(song_load['result']['songinfo_loop'])
