@@ -1029,6 +1029,8 @@ class LMS(BaseStream):
     if 'name' in kwargs and kwargs['name'] != self.name:
       if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata.json"):
         os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
+      if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata_temp.json"):
+        os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata_temp.json")
       self.name = kwargs['name']
       reconnect_needed = True
     if 'server' in kwargs and kwargs['server'] != self.server:
@@ -1080,7 +1082,7 @@ class LMS(BaseStream):
           server.replace('localhost', socket.gethostname())
         lms_args += [ '-s', server]
 
-        meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name, "--client", self.server]
+        meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name, "--server", self.server]
         self.meta_proc = subprocess.Popen(args=meta_args)
       else:
         meta_args = ['python3', 'streams/lms_metadata.py', '--name', self.name]
@@ -1107,6 +1109,8 @@ class LMS(BaseStream):
     self.proc = None
     if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata.json"):
       os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata.json")
+    if os.path.exists(f"lms_{str(self.name).replace(' ', '_')}_metadata_temp.json"):
+      os.remove(f"lms_{str(self.name).replace(' ', '_')}_metadata_temp.json")
 
   def info(self) -> models.SourceInfo:
     # Opens and reads the metadata.json file every time the info def is called
@@ -1125,10 +1129,10 @@ class LMS(BaseStream):
     source = models.SourceInfo(
       name=self.full_name(),
       state=self.state,
-      img_url= self.meta['image_url'],
-      track= self.meta['track'],
-      album= self.meta['album'],
-      artist= self.meta['artist']
+      img_url= self.meta.get('image_url', ''),
+      track= self.meta('track', ''),
+      album= self.meta('album', ''),
+      artist= self.meta('artist', '')
     )
     return source
 
