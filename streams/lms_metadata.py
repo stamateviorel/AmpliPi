@@ -19,11 +19,6 @@ class MetadataHolder:
   track: str
   image_url: str
 
-  def update_data(self, **kwargs):
-    """Updates metadata according to Key:Value pairs sent via a dictionary"""
-    for key, value in kwargs.items():
-      setattr(self, key, value)
-
   def print_meta(self):
     """Prints contents of metadata"""
     # Encased in line breaks because when it is being constantly printed, it visually mucks up the console a lot
@@ -136,14 +131,18 @@ class LMSMetadataReader:
 
         # Previously this code was a series of try-catches and if-elses
         # This new code should be much more efficient in the long term, as it should work even for untested stream types
-        metadata = {
-          "artist": song_data.get('artist') or song_data.get('title') or None,
-          "album": song_data.get('album') or song_data.get('remote_title') or None,
-          "track": song_data.get('title') or track_data.get('title') or None,
-          "image_url": song_data.get('artwork_url') or f"http://{self.address}/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}" or 'static/imgs/lms.png'
-        }
-
-        self.meta.update_data(**metadata)
+        if song_data.get('artist'):
+          self.meta.artist = song_data.get('artist')
+          self.meta.album = song_data.get('album')
+          self.meta.track = song_data.get('title')
+          self.meta.image_url = song_data.get('artwork_url')
+        else:
+          self.meta.artist = song_data.get('title')
+          self.meta.album = song_data.get('remote_title')
+          self.meta.track = track_data.get('title')
+          self.meta.image_url = 'static/imgs/lms.png'
+          if song_data.get('coverid'):
+            self.meta.image_url = f"http://{self.address}/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
 
         try:
           self.meta.save_file(self.player_name)
@@ -152,9 +151,10 @@ class LMSMetadataReader:
 
         if self.debug:
           self.meta.print_meta()
-          with open(f"{str(self.player_name).replace(' ', '_')}_track_raw.json", "w", encoding="UTF-8") as f:
+          filename_prefix = str(self.player_name).replace(' ', '_')
+          with open(f"{filename_prefix}_track_raw.json", "w", encoding="UTF-8") as f:
             json.dump(track_load, f, indent = 2)
-          with open(f"{str(self.player_name).replace(' ', '_')}_song_raw.json", "w", encoding="UTF-8") as f:
+          with open(f"{filename_prefix}_song_raw.json", "w", encoding="UTF-8") as f:
             json.dump(song_load, f, indent = 2)
       except Exception as e:
         print(f"Error: {e}, trying again in {self.meta_ref_rate} seconds...")
