@@ -1130,9 +1130,9 @@ class LMS(BaseStream):
       name=self.full_name(),
       state=self.state,
       img_url= self.meta.get('image_url', ''),
-      track= self.meta('track', ''),
-      album= self.meta('album', ''),
-      artist= self.meta('artist', '')
+      track= self.meta.get('track', ''),
+      album= self.meta.get('album', ''),
+      artist= self.meta.get('artist', '')
     )
     return source
 
