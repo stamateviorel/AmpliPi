@@ -48,16 +48,13 @@ class LMSMetadataReader:
     self.address = None # {ip}:{port}
     self.meta_ref_rate = meta_ref
     self.debug = debug
-    if server:
-      self.meta = MetadataHolder(artist = 'Loading...',
-                           album = 'Loading...',
-                           track = 'Loading...',
-                           image_url = 'static/imgs/lms.png')
-    else:
-      self.meta = MetadataHolder(artist = 'Loading...',
-                           album = 'If loading takes a long time,',
-                           track = 'consider adding hostname to stream config',
-                           image_url = 'static/imgs/lms.png')
+    self.meta = MetadataHolder(artist = 'Loading...',
+                          album = 'Loading...',
+                          track = 'Loading...',
+                          image_url = 'static/imgs/lms.png')
+    if not server:
+      self.meta.album =  'If loading takes a long time,'
+      self.meta.track = 'consider adding hostname to stream config'
 
 
   def flatten(self, lms_info: dict) -> dict:
@@ -129,17 +126,15 @@ class LMSMetadataReader:
         track_data = self.flatten(track_load['result']['playlist_loop'])
 
 
-        # Previously this code was a series of try-catches and if-elses
-        # This new code should be much more efficient in the long term, as it should work even for untested stream types
         if song_data.get('artist'):
-          self.meta.artist = song_data.get('artist')
-          self.meta.album = song_data.get('album')
-          self.meta.track = song_data.get('title')
-          self.meta.image_url = song_data.get('artwork_url')
+          self.meta.artist = song_data.get('artist') or "Loading..."
+          self.meta.album = song_data.get('album') or "Loading..."
+          self.meta.track = song_data.get('title') or "Loading..."
+          self.meta.image_url = song_data.get('artwork_url') or 'static/imgs/lms.png'
         else:
-          self.meta.artist = song_data.get('title')
-          self.meta.album = song_data.get('remote_title')
-          self.meta.track = track_data.get('title')
+          self.meta.artist = song_data.get('title') or "Loading..."
+          self.meta.album = song_data.get('remote_title') or "Loading..."
+          self.meta.track = track_data.get('title') or "Loading..."
           self.meta.image_url = 'static/imgs/lms.png'
           if song_data.get('coverid'):
             self.meta.image_url = f"http://{self.address}/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
