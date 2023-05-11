@@ -130,14 +130,18 @@ class LMSMetadataReader:
           self.meta.artist = song_data.get('artist') or "Loading..."
           self.meta.album = song_data.get('album') or "Loading..."
           self.meta.track = song_data.get('title') or "Loading..."
-          self.meta.image_url = song_data.get('artwork_url') or 'static/imgs/lms.png'
         else:
           self.meta.artist = song_data.get('title') or "Loading..."
           self.meta.album = song_data.get('remote_title') or "Loading..."
           self.meta.track = track_data.get('title') or "Loading..."
+
+
+        if song_data.get('artwork_url'):
+          self.meta.image_url = song_data.get('artwork_url')
+        elif song_data.get('coverid'):
+          self.meta.image_url = f"http://{self.address}/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
+        else:
           self.meta.image_url = 'static/imgs/lms.png'
-          if song_data.get('coverid'):
-            self.meta.image_url = f"http://{self.address}/music/{song_data['coverid']}/cover.jpg?id={song_data['coverid']}"
 
         try:
           self.meta.save_file(self.player_name)
