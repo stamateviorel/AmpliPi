@@ -416,7 +416,7 @@ class Api:
     for zone in self.status.zones:
       # TODO: disable zones that are not found
       # we likely need an additional field for this, maybe auto-disabled?
-      zone_update = models.ZoneUpdate(source_id=zone.source_id, mute=True, vol=zone.vol)
+      zone_update = models.ZoneUpdate(source_id=zone.source_id, mute=zone.mute, vol=zone.vol)
       self.set_zone(zone.id, zone_update, force_update=True, internal=True)
     # configure all of the groups (some fields may need to be updated)
     self._update_groups()
