@@ -2,6 +2,37 @@
    * Some helper functions to work with our UI and keep our code cleaner
    */
 
+// ── Revert to previous version ───────────────────────────────────────────────
+
+function ui_begin_revert() {
+  if (!confirm('Revert to the version installed before the last update?\nThe page will reload after restart.')) return;
+  var source = new EventSource("update/install/progress");
+  source.onmessage = function(event) {
+    var data = JSON.parse(event.data);
+    ui_show_update_progress(data);
+    if (data.type === 'success' || data.type === 'failed') {
+      source.close();
+      if (data.type === 'success') {
+        setTimeout(ui_check_after_reboot, 3000, 2 * 60 / 5 - 1);
+      }
+    }
+  };
+  fetch('update/revert', { method: 'POST' }).catch(function(err) {
+    ui_add_log('Error starting revert: ' + err.message, 'danger');
+  });
+}
+
+// Check if a backup exists; show the Revert tab only when one is available
+fetch('update/backup').then(function(resp) { return resp.json(); }).then(function(info) {
+  if (info.available) {
+    document.getElementById('revert-tab-item').style.display = '';
+    document.getElementById('revert-info').innerHTML =
+      'A backup from <strong>' + info.created + '</strong> is available (' + info.size_mb + ' MB).';
+  }
+}).catch(function() {});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Adds an entry to our debug area
 function ui_add_log(message, color)
 {

@@ -27,17 +27,7 @@ DEFAULT_CONFIG = {  # This is the system state response that will come back from
   # NOTE: streams and groups seem like they should be stored as dictionaries with integer keys
   #       this does not make sense because JSON only allows string based keys
   "streams": [
-    {"id": AUX_STREAM_ID, "name": "Aux", "type": "aux", "browsable": False, "disabled": False},
-    {"id": RCAs[0], "name": "Input 1", "type": "rca", "index": 0, "browsable": False, "disabled": False},
-    {"id": RCAs[1], "name": "Input 2", "type": "rca", "index": 1, "browsable": False, "disabled": False},
-    {"id": RCAs[2], "name": "Input 3", "type": "rca", "index": 2, "browsable": False, "disabled": False},
-    {"id": RCAs[3], "name": "Input 4", "type": "rca", "index": 3, "browsable": False, "disabled": False},
-    {"id": 1000, "name": "Groove Salad", "type": "internetradio", "url": "http://ice6.somafm.com/groovesalad-32-aac",
-     "logo": "https://somafm.com/img3/groovesalad-400.jpg", "browsable": False, "disabled": False},
-    {"id": 1001, "name": "AmpliPro 1", "type": "spotify", "disabled": False, "browsable": False},
-    {"id": 1002, "name": "AmpliPro 2", "type": "spotify", "disabled": False, "browsable": False},
-    {"id": 1003, "name": "AmpliPro 1", "type": "airplay", "disabled": False, "ap2": False, "browsable": False},
-    {"id": 1004, "name": "AmpliPro 2", "type": "airplay", "disabled": False, "ap2": True, "browsable": False}
+    {"id": LMS_DEFAULTS[0], "name": "General", "type": "lms", "browsable": False},
   ],
   "zones": [  # this is an array of zones, array length depends on # of boxes connected
     {"id": 0, "name": "Zone 1", "source_id": 0, "mute": True, "disabled": False,
@@ -80,13 +70,7 @@ STREAMER_CONFIG = {  # This is the system state response that will come back fro
     {"id": 3, "name": "Output 4", "input": ""},
   ],
   "streams": [
-    {"id": AUX_STREAM_ID, "name": "Aux", "type": "aux", "browsable": False, "disabled": False},
-    {"id": 1000, "name": "Groove Salad", "type": "internetradio", "url": "http://ice6.somafm.com/groovesalad-32-aac",
-     "logo": "https://somafm.com/img3/groovesalad-400.jpg", "browsable": False, "disabled": False},
-    {"id": 1001, "name": "AmpliPro 1", "type": "spotify", "disabled": False, "browsable": False},
-    {"id": 1002, "name": "AmpliPro 2", "type": "spotify", "disabled": False, "browsable": False},
-    {"id": 1003, "name": "AmpliPro 1", "type": "airplay", "disabled": False, "ap2": False, "browsable": False},
-    {"id": 1004, "name": "AmpliPro 2", "type": "airplay", "disabled": False, "ap2": True, "browsable": False}
+    {"id": LMS_DEFAULTS[0], "name": "Music 1", "type": "lms", "browsable": False},
   ],
   "zones": [  # this is an array of zones, array length depends on # of boxes connected
   ],
@@ -106,15 +90,7 @@ DEFAULT_LMS_CONFIG = {  # This is the system state response that will come back 
   # NOTE: streams and groups seem like they should be stored as dictionaries with integer keys
   #       this does not make sense because JSON only allows string based keys
   "streams": [
-    {"id": AUX_STREAM_ID, "name": "Aux", "type": "aux", "browsable": False, "disabled": False},
-    {"id": RCAs[0], "name": "Input 1", "type": "rca", "index": 0, "browsable": False, "disabled": False},
-    {"id": RCAs[1], "name": "Input 2", "type": "rca", "index": 1, "browsable": False, "disabled": False},
-    {"id": RCAs[2], "name": "Input 3", "type": "rca", "index": 2, "browsable": False, "disabled": False},
-    {"id": RCAs[3], "name": "Input 4", "type": "rca", "index": 3, "browsable": False, "disabled": False},
     {"id": LMS_DEFAULTS[0], "name": "Music 1", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[1], "name": "Music 2", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[2], "name": "Music 3", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[3], "name": "Music 4", "type": "lms", "browsable": False, "server": "localhost"},
   ],
   "zones": [  # this is an array of zones, array length depends on # of boxes connected
     {"id": 0, "name": "Zone 1", "source_id": 0, "mute": True, "disabled": False,
@@ -156,11 +132,7 @@ STREAMER_LMS_CONFIG = {  # This is the system state response that will come back
     {"id": 4, "name": "Output 4", "input": f"stream={LMS_DEFAULTS[3]}"},
   ],
   "streams": [
-    {"id": AUX_STREAM_ID, "name": "Aux", "type": "aux", "browsable": False, "disabled": False},
     {"id": LMS_DEFAULTS[0], "name": "Music 1", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[1], "name": "Music 2", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[2], "name": "Music 3", "type": "lms", "browsable": False, "server": "localhost"},
-    {"id": LMS_DEFAULTS[3], "name": "Music 4", "type": "lms", "browsable": False, "server": "localhost"},
   ],
   "zones": [  # this is an array of zones, array length depends on # of boxes connected
   ],

@@ -302,81 +302,29 @@ class Api:
     # configure Aux and SPDIF
     utils.configure_inputs()
 
-    if not self.is_streamer:
-      # add any missing RCA stream, mostly used to migrate old configs where rca inputs were not streams
-      for rca_id in defaults.RCAs:
-        sid, stream = utils.find(self.status.streams, rca_id)
-        if sid is None:
-          idx = rca_id - defaults.RCAs[0]
-          # try to use the old name in the source if it was renamed from the default name of 1-4
-          input_name = f'Input {idx + 1}'
-          try:
-            src_name = self.status.sources[idx].name
-            if not src_name.isdigit():
-              input_name = src_name
-          except Exception as e:
-            logger.exception(f'Error discovering old source name for conversion to RCA stream: {e}')
-            logger.info(f'- Defaulting name to: {input_name}')
-          rca_stream = models.Stream(id=rca_id, name=input_name, type='rca', index=idx)
-          self.status.streams.insert(idx, rca_stream)
-
-    # make sure the config file contains the aux stream
-    has_aux_stream = False
-    for stream in self.status.streams:
-      if stream.type == "aux":
-        has_aux_stream = True
-        break
-
-    if not has_aux_stream:
-      # insert aux stream in appropriate place
-      self.status.streams.insert(0, models.Stream(id=defaults.AUX_STREAM_ID, type="aux", name="Aux"))
+    # Migrate config: remove any stream types not supported in this build.
+    # Runs once on first boot after deploy; re-saves the config so stale entries
+    # (aux, rca, airplay, etc.) are permanently gone with no warnings.
+    _supported = set(amplipi.streams.stream_types_available())
+    _stale = [s for s in self.status.streams if s.type not in _supported]
+    if _stale:
+      for s in _stale:
+        logger.info(f"Config migration: removing unsupported stream '{s.name}' (type={s.type})")
+        self.status.streams.remove(s)
 
     # configure all streams into a known state
     self.streams: Dict[int, amplipi.streams.AnyStream] = {}
-    failed_streams: List[int] = []
     for stream in self.status.streams:
       assert stream.id is not None
       if stream.id:
-        try:
-          self.streams[stream.id] = amplipi.streams.build_stream(stream, self._mock_streams, validate=False)
-          # If we're in LMS mode, we need to start these clients on each boot, not when they get assigned to a
-          # particular source; the client+server connection bootstrapping takes a while, which is a less than ideal
-          # user experience.
-          if self.lms_mode and stream.type == 'lms':
-            self.streams[stream.id].activate()  # type: ignore
-        except Exception as exc:
-          logger.exception(f"Failed to create '{stream.name}' stream: {exc}")
-          failed_streams.append(stream.id)
+        self.streams[stream.id] = amplipi.streams.build_stream(stream, self._mock_streams, validate=False)
+        if self.lms_mode and stream.type == 'lms':
+          self.streams[stream.id].activate()  # type: ignore
     self.sync_stream_info()  # need to update the status with the new streams
 
-    # add/remove dynamic bluetooth stream
-    bt_streams = [sid for sid, stream in self.streams.items() if isinstance(stream, amplipi.streams.Bluetooth)]
-    if amplipi.streams.Bluetooth.is_hw_available() and not self._mock_hw:
-      logger.info('bluetooth dongle available')
-      # make sure one stream is available
-      if len(bt_streams) == 0:
-        logger.info('no bt streams present. creating one')
-        self.create_stream(models.Stream(type='bluetooth', name='Bluetooth'), internal=True)
-      elif len(bt_streams) > 1:
-        logger.info('bt streams present. removing all but one')
-        for s in bt_streams[1:]:
-          self.delete_stream(s, internal=True)
-    else:
-      logger.info('bluetooth dongle unavailable')
-      if len(bt_streams) > 0:
-        logger.info('bt streams present. removing all')
-        for s in bt_streams:
-          self.delete_stream(s, internal=True)
+    # Stripped build: bluetooth auto-detection removed (2026-05-31)
 
-    # enable/disable any FMRadio streams, depending on hw availability
-    fm_streams = [stream for sid, stream in self.streams.items() if isinstance(stream, amplipi.streams.FMRadio)]
-    fm_disabled = not amplipi.streams.FMRadio.is_hw_available()
-    if fm_disabled:
-      logger.warning('fm radio dongle unavailable')
-    for fm_stream in fm_streams:
-      logger.info(f"setting FM stream {fm_stream.name} to disabled={fm_disabled} based on hw availability")
-      fm_stream.disabled = fm_disabled
-    self.sync_stream_info()  # update stream status with potentially updated streams
+    # Stripped build: FMRadio hw-detection removed (2026-05-31)
 
     # configure all sources so that they are in a known state
     # only models.MAX_SOURCES are supported, keep the config from adding extra
@@ -669,21 +617,7 @@ class Api:
     return src_cfg
 
   def _delete_unused_temporary_streams(self):
-    """Removes temporary file players if they are disconnected and have no connected sources"""
-    temp_streams = []
-    for stream_id in self.streams.keys():
-      stream = self.streams[stream_id]
-      if stream.stream_type == 'fileplayer' and stream.temporary and stream.timeout_expired():
-        temp_streams.append(stream_id)
-
-    for source in self.status.sources:
-      for stream_id in temp_streams:
-        if source.input[7:].isdigit() and int(source.input[7:]) == stream_id:
-          temp_streams.remove(stream_id)
-
-    for stream_id in temp_streams:
-      logger.info(f'Deleting unused temporary stream {stream_id}')
-      self.delete_stream(stream_id, internal=False)  # Internal is False so it shows up immediately on UI
+    """No-op in this build — fileplayer removed."""
 
   def set_source(self, sid: int, update: models.SourceUpdate, force_update: bool = False, internal: bool = False) -> ApiResponse:
     """Modifes the configuration of one of the 4 system sources
@@ -1057,9 +991,6 @@ class Api:
   def create_stream(self, data: models.Stream, internal=False) -> models.Stream:
     """ Create a new stream """
     try:
-      if not internal and data.type == 'rca':
-        raise Exception(
-          f'Unable to create protected RCA stream, the RCA streams for each RCA input {defaults.RCAs} already exist')
       # Make a new stream and add it to streams
       stream = amplipi.streams.build_stream(data, mock=self._mock_streams)
       sid = self._new_stream_id()
@@ -1104,10 +1035,7 @@ class Api:
   def delete_stream(self, sid: int, internal=False) -> ApiResponse:
     """Deletes an existing stream"""
     try:
-      # Analog streams are intrinsic to the hardware and can't be removed
-      if (sid in defaults.RCAs and isinstance(self.streams[sid], amplipi.streams.RCA)) or (sid == defaults.AUX_STREAM_ID and isinstance(self.streams[sid], amplipi.streams.Aux)):
-        msg = f'Protected stream {sid} cannot be removed, use disabled=True to hide it'
-        raise Exception(msg)
+      # Stripped build: RCA/Aux protection removed — all streams are deletable (2026-05-31)
       # if input is connected to a source change that input to nothing
       for src in self.status.sources:
         if src.get_stream() == sid and src.id is not None:
@@ -1131,7 +1059,7 @@ class Api:
 
   @save_on_success
   def exec_stream_command(self, sid: int, cmd: str) -> ApiResponse:
-    """Sets play/pause on a specific pandora source """
+    """Send a command to a stream (play/pause/next/prev/restart/activate/deactivate) """
     if int(sid) not in self.streams:
       return ApiResponse.error(f'Stream id {sid} does not exist')
     try:
@@ -1156,8 +1084,8 @@ class Api:
 
   @save_on_success
   def get_stations(self, sid, stream_index=None) -> Union[ApiResponse, Dict[str, str]]:
-    """Gets a pandora stream's station list"""
-    # TODO: this should be moved to be a command of the Pandora stream interface
+    """Gets a browsable stream's station/item list"""
+    # TODO: this should be moved to be a command of the stream interface
     if sid not in self.streams:
       return ApiResponse.error('Stream id {} does not exist!'.format(sid))
     # TODO: move the rest of this into streams
@@ -1366,116 +1294,9 @@ class Api:
     return ApiResponse.ok()
 
   def announce(self, announcement: models.Announcement) -> ApiResponse:
-    """ Create and play an announcement """
-    # create a temporary announcement stream using fileplayer
-    resp0 = self.create_stream(models.Stream(type='fileplayer', name='Announcement',
-                               url=announcement.media, temporary=True,
-                               timeout=int((datetime.datetime.now() + datetime.timedelta(seconds=5)).timestamp()),
-                               has_pause=False), internal=True)
-    if isinstance(resp0, ApiResponse):
-      return resp0
-    stream = resp0
-
-    # Don't delete external media streams
-    self._freeze_delete_temporary = True
-
-    # create a temporary preset with all zones connected to the announcement stream and load it
-    # for now we just use the last source
-    pa_src = models.SourceUpdateWithId(id=announcement.source_id, input=f'stream={stream.id}')
-    if announcement.zones is None and announcement.groups is None:
-      zones_to_use = {z.id for z in self.status.zones if z.id is not None and not z.disabled}
-    else:
-      unique_zones = utils.zones_from_all(self.status, announcement.zones, announcement.groups)
-      zones_to_use = utils.enabled_zones(self.status, unique_zones)
-    # Set the volume of the announcement, forcing db only if it is specified
-    if announcement.vol is not None:
-      pa_zones = [models.ZoneUpdateWithId(id=zid, source_id=pa_src.id, mute=False,
-                                          vol=announcement.vol) for zid in zones_to_use]
-    else:
-      pa_zones = [models.ZoneUpdateWithId(id=zid, source_id=pa_src.id, mute=False,
-                                          vol_f=announcement.vol_f) for zid in zones_to_use]
-    resp1 = self.create_preset(models.Preset(name='PA - announcement',
-                               state=models.PresetState(sources=[pa_src], zones=pa_zones)), internal=True)
-    if isinstance(resp1, ApiResponse):
-      return resp1
-
-    # NOTE: pylint is very confused about the type of pa_preset, it thinks it is an ApiResponse, but it is not
-    pa_preset: models.Preset = resp1
-    pa_state: Optional[models.PresetState] = pa_preset.state  # pylint: disable=no-member
-
-    # mute all zones that are effected by the announcement but not being announced to
-    # NOTE: these zones will be unmuted when the announcement is done using the state saved to LAST_PRESET_ID
-    if pa_state:
-      zones_to_mute = self._effected_zones(pa_state).difference(zones_to_use)
-      pa_muted_zones = [models.ZoneUpdateWithId(id=zid, source_id=pa_src.id, mute=True) for zid in zones_to_mute]
-      if pa_state.zones:
-        pa_state.zones += pa_muted_zones
-
-    if pa_preset.id is None or stream.id is None:
-      return ApiResponse.error('ID expected to be provided')
-    resp2 = self.load_preset(pa_preset.id, internal=True)
-    if resp2.code != ApiCode.OK:
-      return resp2
-    resp3 = self.delete_preset(pa_preset.id)
-    if resp3.code != ApiCode.OK:
-      return resp3
-    # wait for the announcement to be done and switch back to the previous state
-    # TODO: what is the longest announcement we should accept?
-    stream_inst = self.streams[stream.id]
-    while True:
-      time.sleep(0.1)
-      if stream_inst.state in ['stopped', 'disconnected']:
-        break
-    resp4 = self.load_preset(defaults.LAST_PRESET_ID, internal=True)
-    resp5 = self.delete_stream(stream.id, internal=True)  # remember to delete the temporary stream
-    self._freeze_delete_temporary = False
-    if resp5.code != ApiCode.OK:
-      return resp5
-    self.mark_changes()
-    return resp4
+    """Announcements removed — use Lyrion TTS instead."""
+    return ApiResponse.error('announce not supported: use Lyrion TTS')
 
   def play_media(self, media: models.PlayMedia) -> ApiResponse:
-    """Play media to a file player on a specified source"""
-    stream = None
-    # First, check if we already have a media player here
-    t_stream = self.get_stream(sid=media.source_id)
-    if t_stream is not None:
-      cur_stream = list(self.streams.keys())[list(self.streams.values()).index(t_stream)]
-      logger.info(f'Stream found is {cur_stream}')
-      for tmp_stream in self.status.streams:
-        if tmp_stream.id == cur_stream and tmp_stream.type == 'fileplayer' and tmp_stream.has_pause:
-          stream = tmp_stream
-
-    # If we do not have a media player already allocated, create one
-    if stream is None:
-      resp0 = self.create_stream(models.Stream(type='fileplayer', name='External Media',
-                                               url=media.media, internal=True, temporary=True,
-                                               timeout=int((datetime.datetime.now() + datetime.timedelta(seconds=5)).timestamp()),
-                                               has_pause=True))
-
-      if isinstance(resp0, ApiResponse):
-        return resp0
-      stream = resp0
-
-    zones = []
-    for zone in self.status.zones:
-      if zone.source_id == media.source_id and zone not in zones:
-        zones.append(zone)
-
-    for zone in zones:
-      if media.vol is not None or media.vol_f is not None:
-        update = models.ZoneUpdate(vol=media.vol, vol_f=media.vol_f, mute=False)
-        self.set_zone(zone.id, update, internal=True)
-
-    if stream.id is not None:
-      self.streams[stream.id].reconfig(url=media.media, temporary=True,
-                                       timeout=int((datetime.datetime.now() + datetime.timedelta(seconds=5)).timestamp()))
-      self.sync_stream_info()
-      self.mark_changes()
-
-    src_update = models.SourceUpdate()
-    src_update.name = None
-    src_update.input = f'stream={stream.id}'
-    self.set_source(media.source_id, src_update, internal=True, force_update=True)
-
-    return ApiResponse.ok()
+    """play_media removed — use Lyrion instead."""
+    return ApiResponse.error('play_media not supported: use Lyrion')

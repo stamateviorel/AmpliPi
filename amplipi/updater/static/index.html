@@ -34,19 +34,24 @@
       <div class="card">
         <div class="card-header">
           <ul class="nav nav-tabs card-header-tabs" id="myTab" role="tablist">
-            <li class="nav-item">
-              <a class="nav-link active" id="latest-update-tab" data-toggle="tab" href="#latest-update" role="tab" aria-controls="latest-update" aria-selected="true">Latest Release</a>
+            <!-- Stripped build: stock OTA tabs hidden — a stock release would overwrite
+                 this custom build. Custom Update is the only install path (default tab). -->
+            <li class="nav-item" style="display:none;">
+              <a class="nav-link" id="latest-update-tab" data-toggle="tab" href="#latest-update" role="tab" aria-controls="latest-update" aria-selected="false">Latest Release</a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" style="display:none;">
               <a class="nav-link" id="older-update-tab" data-toggle="tab" href="#older-update" role="tab" aria-controls="older-update" aria-selected="false">Other Releases</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" id="manual-update-tab" data-toggle="tab" href="#manual-update" role="tab" aria-controls="manual-update" aria-selected="false">Custom Update</a>
+              <a class="nav-link active" id="manual-update-tab" data-toggle="tab" href="#manual-update" role="tab" aria-controls="manual-update" aria-selected="true">Custom Update</a>
+            </li>
+            <li class="nav-item" id="revert-tab-item" style="display:none;">
+              <a class="nav-link" id="revert-tab" data-toggle="tab" href="#revert-pane" role="tab" aria-controls="revert-pane" aria-selected="false">Revert</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" id="admin-settings-tab" data-toggle="tab" href="#admin-settings" role="tab" aria-controls="admin-settings" aria-selected="false" onClick="getPersist();">Admin Settings</a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" style="display:none;">
               <a class="nav-link" id="support-tunnel-tab" data-toggle="tab" href="#support-tunnel" role="tab" aria-controls="support-tunnel" aria-selected="false">Support Tunnel</a>
             </li>
           </ul>
@@ -54,7 +59,7 @@
         <div class="card-body text-center">
           <div class="tab-content" id="myTabContent">
 
-            <div class="tab-pane fade show active" id="latest-update" role="tabpanel" aria-labelledby="latest-update-tab">
+            <div class="tab-pane fade" id="latest-update" role="tabpanel" aria-labelledby="latest-update-tab">
               <div id='latest-update-name'>...</div>
               <div id='latest-update-desc' class="text-left"></div>
               <a id="submit-latest-update" role="button" class="btn btn-lg btn-primary text-center mt-3 d-none"
@@ -73,7 +78,7 @@
                 Start Update</a>
             </div>
 
-            <div class="tab-pane fade" id="manual-update" role="tabpanel" aria-labelledby="manual-update-tab">
+            <div class="tab-pane fade show active" id="manual-update" role="tabpanel" aria-labelledby="manual-update-tab">
               <div class="custom-file">
                 <input id="update-file-selector" type="file" accept=".gz" onchange="$('#submit-custom-update').removeClass('disabled');">
               </div>
@@ -97,6 +102,14 @@
                     Copy & paste the above lines in a support request, or <a id="support-tunnel-email"  target="_blank">email us.</a>
                 </div>
               </div>
+            </div>
+
+            <div class="tab-pane fade text-left" id="revert-pane" role="tabpanel" aria-labelledby="revert-tab">
+              <div id="revert-info" class="mb-3 text-muted"></div>
+              <a id="submit-revert" role="button" class="btn btn-lg btn-warning text-center mt-1"
+                 onclick="ui_begin_revert();">
+                <i class="fa fa-undo"></i> Revert to Previous Version
+              </a>
             </div>
 
             <div class="tab-pane fade text-left column-container" id="admin-settings" role="tabpanel" aria-labelledby="admin-settings-tab">
@@ -198,8 +211,10 @@
                 This tab allows you to change settings relating to the core of AmpliPi
               </div>
 
-              <!-- Password -->
-              <div style="background-color: inherit; box-shadow: none; width: 100%;" class="card set-password column-item">
+              <!-- Password — hidden in the stripped build: setting a web password
+                   enables API auth and locks out the openHAB binding (POST /password
+                   also returns 403 server-side). -->
+              <div style="display:none; background-color: inherit; box-shadow: none; width: 100%;" class="card set-password column-item">
                 <h6 class="card-header">
                   Set Password:
                 </h6>

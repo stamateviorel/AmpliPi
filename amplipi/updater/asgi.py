@@ -145,6 +145,10 @@ app.mount("/static", StaticFiles(directory=f"{dir_path}/static"), name="static")
 INSTALL_DIR = os.getenv('INSTALL_DIR', os.getcwd())
 USER_CONFIG_DIR = os.path.join(os.path.expanduser('~'), '.config', 'amplipi')
 
+# Backup settings — only the code directories, not web assets or git history
+_BACKUP_INCLUDES = ['amplipi', 'streams', 'config', 'pyproject.toml', 'requirements.txt']
+_BACKUP_PATH = os.path.join('web', 'backup', 'previous.tar.gz')
+
 # if we have a broken configuration, the updater should still function
 # as a failsafe. This structure & some code was copied from
 # https://github.com/micro-nova/AmpliPi/blob/8368a4a79f536757d7f301612494b6788355aafc/amplipi/app.py#L753
@@ -298,16 +302,10 @@ def download(url, file_name):
 
 @router.post("/update/download")
 async def download_update(info: ReleaseInfo):
-  """ Download the update """
-  logger.info(f'downloading update from: {info.url}')
-  try:
-    persist_logs_during_update()
-    os.makedirs('web/uploads', exist_ok=True)
-    download(info.url, 'web/uploads/update.tar.gz')
-    return 200
-  except Exception as e:
-    logger.exception(e)
-    return 500
+  """ Stock OTA downloads are disabled in this stripped build — a stock release
+   would overwrite the lms-only customizations. Use the Custom Update tab. """
+  logger.warning(f'stock OTA download blocked (stripped build): {info.url}')
+  return 403
 
 
 @router.get('/update/restart')  # an old version accidentally used get instead of post
@@ -323,6 +321,73 @@ def restart():
 
 
 TOML_VERSION_STR = re.compile(r'version\s*=\s*"(.*)"')
+
+
+def _create_backup():
+  """Snapshot the current code directories before overwriting with a new release.
+
+  Only backs up code (amplipi/, streams/, config/, pyproject.toml, requirements.txt) —
+  not web assets, git history, or user data. Typically 1–3 MB.
+  """
+  backup_dir = os.path.join(INSTALL_DIR, 'web', 'backup')
+  os.makedirs(backup_dir, exist_ok=True)
+  backup_file = os.path.join(INSTALL_DIR, _BACKUP_PATH)
+  includes = [f for f in _BACKUP_INCLUDES if os.path.exists(os.path.join(INSTALL_DIR, f))]
+  if not includes:
+    _sse_warning('Nothing to backup — skipping')
+    return
+  _sse_info('Creating backup of current installation...')
+  subprocess.run(
+    ['tar', '-czf', backup_file] + includes,
+    cwd=INSTALL_DIR,
+    check=True,
+    capture_output=True
+  )
+  _sse_info('Backup created')
+
+
+def _revert_thread():
+  """Restore the backup created before the last update and restart."""
+  _sse_info('Starting revert to previous version...')
+  try:
+    backup_file = os.path.join(INSTALL_DIR, _BACKUP_PATH)
+    if not os.path.exists(backup_file):
+      _sse_failed('No backup found — cannot revert')
+      return
+    _sse_info('Extracting backup...')
+    subprocess.run(
+      ['tar', '-xzf', backup_file, '-C', INSTALL_DIR],
+      check=True,
+      capture_output=True
+    )
+    _sse_done('Revert complete — restarting...')
+    time.sleep(1)
+    subprocess.Popen(f'python3 {INSTALL_DIR}/scripts/configure.py --restart-updater'.split())
+  except Exception as e:
+    _sse_failed(f'Revert failed: {e}')
+
+
+@router.get('/update/backup')
+def get_backup_info():
+  """Check whether a pre-update backup exists and return its metadata."""
+  import datetime
+  backup_file = os.path.join(INSTALL_DIR, _BACKUP_PATH)
+  if os.path.exists(backup_file):
+    stat = os.stat(backup_file)
+    mtime = datetime.datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+    return {'available': True, 'size_mb': round(stat.st_size / 1024 / 1024, 1), 'created': mtime}
+  return {'available': False}
+
+
+@router.post('/update/revert')
+def revert():
+  """Revert to the installation snapshot taken before the last update."""
+  backup_file = os.path.join(INSTALL_DIR, _BACKUP_PATH)
+  if not os.path.exists(backup_file):
+    return {'error': 'No backup available — update first to create one'}
+  t = threading.Thread(target=_revert_thread)
+  t.start()
+  return {}
 
 
 @router.get('/update/version')
@@ -421,6 +486,12 @@ def install_thread():
 
   _sse_info('starting installation')
 
+  # Snapshot the current code before overwriting — enables one-click revert
+  try:
+    _create_backup()
+  except Exception as e:
+    _sse_warning(f'Backup failed (continuing anyway): {e}')
+
   try:
     extract_to_home(INSTALL_DIR)
     _sse_info('done copying software')
@@ -470,16 +541,10 @@ class PasswordInput(BaseModel):
 
 @router.post('/password')
 def set_admin_password(input: PasswordInput):
-  """ Sets the admin password and (re)sets its access key."""
-  # At present, we don't support multiple human users, just an "admin".
-  # This field is potentially still used with API keys though, so it's worthwhile to distinguish
-  # (and also permits us forward-looking flexibility.)
-  username = "admin"
-  if len(input.password) == 0:
-    unset_password_hash(username)
-  else:
-    set_password_hash(username, input.password)
-    create_access_key(username)
+  """ Disabled in this stripped build. A web password turns on API auth, which
+   locks out the openHAB binding — see the 2026-06-10 incident in STRIPPED.md. """
+  logger.warning('set_admin_password blocked: password auth is removed in this stripped build')
+  return Response(status_code=403, content='password auth removed in this stripped build')
 
 
 @router.post('/support')

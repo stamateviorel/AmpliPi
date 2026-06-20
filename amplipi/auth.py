@@ -145,16 +145,11 @@ def create_access_key(user: str) -> str:
 
 
 def set_password_hash(user: str, password: str) -> None:
-  """ Sets a password for a given user. (Re/)sets the session/access key for a user.
-      If the user does not exist, it is created.
+  """ Disabled in this stripped build. Setting a web password turns on API auth,
+      which locks out the openHAB binding (it cannot authenticate) — see the
+      2026-06-10 incident in STRIPPED.md. Restore the stock body to re-enable.
   """
-  users = _get_users()
-  if user not in users.keys():
-    users[user] = {}
-  users[user]["password_hash"] = _hash_password(password)
-  users[user]["type"] = "user"
-  _set_users(users)
-  create_access_key(user)
+  logger.warning("set_password_hash blocked: password auth is removed in this stripped build")
 
 
 def unset_password_hash(user) -> None:
