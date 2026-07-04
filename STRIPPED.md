@@ -57,3 +57,18 @@ Passwordless (2026-06-10, third pass — incident-driven):
   + set_admin_password (updater/asgi.py) + unhide the form — AND give openHAB an
   authenticated path first (e.g. nginx cookie-injection of a dedicated api-type
   user's access_key for <openhab-host> only), or zone control breaks again.
+
+Direct-output architecture (2026-07-04):
+- The loopback/alsaloop layer is REMOVED from operation. Both players are
+  systemd user units in /home/pi/.config/systemd/user/ outputting straight
+  into the ch0 dmix: squeezelite-general.service (-o ch0, MAC 0d:b3:77:92:1f:4c)
+  and squeezelite-announce.service (-o ch0boost, MAC 0d:b3:77:92:1f:4d).
+- house.json: source 0 input="" and the General stream entry (id 1000) is
+  deleted so the amplipi app never spawns the old squeezelite->lb1c->alsaloop
+  chain (same-MAC collision). The app only does zone/preamp control, display,
+  updater. ch0_dmix rate pinned to 48000.
+- Watchdog: /home/pi/amplipi-radio-watchdog.py (radio-watchdog.service) = LMS
+  health (port-3483 flood / dup-orphan server -> clean restart). The old
+  alsaloop-resync.service is disabled. Logrotate for LMS uses copytruncate
+  (a postrotate USR1 once killed the wrapper -> half-dead LMS -> silent
+  burglar siren, 2026-07-04).
