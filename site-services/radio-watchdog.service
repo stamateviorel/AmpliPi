@@ -1,0 +1,11 @@
+[Unit]
+Description=AmpliPi radio silence watchdog (content canary + escalating recovery)
+After=amplipi.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/amplipi-radio-watchdog.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,22 @@
+# copytruncate: rotate without renaming the live file, so the running server
+# keeps its file handle and NO signal is needed. The previous postrotate
+# (kill -USR1 $(pgrep squeezeboxserve -n)) hit the NEWEST matching process --
+# sometimes the bash squeezeboxserver_safe wrapper, which dies on USR1 --
+# killing the audio server at midnight (2026-07-04: silent burglar siren).
+/var/log/squeezeboxserver/server.log {
+  weekly
+  rotate 5
+  size 200k
+  compress
+  missingok
+  copytruncate
+}
+
+/var/log/squeezeboxserver/scanner.log {
+  weekly
+  rotate 5
+  size 200k
+  compress
+  missingok
+  copytruncate
+}

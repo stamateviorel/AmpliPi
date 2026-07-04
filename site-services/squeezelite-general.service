@@ -1,0 +1,17 @@
+[Unit]
+Description=Squeezelite General player (radio) - DIRECT to ch0 dmix, no loopback/alsaloop
+After=network.target logitechmediaserver.service
+
+[Service]
+Type=simple
+# -o ch0: plug -> softvol(-7.1dB clip protection) -> ch0_dmix -> HiFiBerry DAC.
+# Same direct-output pattern as squeezelite-announce (ch0boost), which has never
+# had an audio-path failure. Replaces amplipi-managed squeezelite->lb1c->aloop->
+# alsaloop->ch0 chain (source of every silent-radio wedge).
+# MAC = md5("General") - the identity LMS and openHAB already know.
+ExecStart=/usr/bin/squeezelite -n General -o ch0 -m 0d:b3:77:92:1f:4c -s 127.0.0.1 -a 300:8:: -p 45 -C 5
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
