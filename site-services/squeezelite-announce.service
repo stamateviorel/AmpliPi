@@ -6,7 +6,10 @@ After=network.target logitechmediaserver.service
 Type=simple
 # Outputs to ch0 (downstream of the radio's lb1c) so it mixes with the radio at
 # ch0_dmix and never evicts the radio. Fixed MAC = stable LMS/openHAB player id.
-ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45 -C 5
+# No -C (close-on-silence) flag: keeps ch0_dmix open permanently. Same fix
+# as squeezelite-general — both paths share ch0_dmix; if it goes stale,
+# announcements fail the same way the radio does.
+ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45
 Restart=always
 RestartSec=3
 
