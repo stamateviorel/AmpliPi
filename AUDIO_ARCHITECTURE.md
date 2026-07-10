@@ -31,7 +31,8 @@ Lyrion (LMS, port 9000, LSB unit "logitechmediaserver")
 | Rule | Value | Why |
 |---|---|---|
 | Mix rate | **fixed 48000 Hz** (ch0_dmix slave) | sources vary; a mixer needs one rate; 48k suits the DAC |
-| Conversion point | the `plug` layer of each client | squeezelite outputs source rate (no `-R`) |
+| Radio conversion | the `plug` layer (General has no `-R`) | 44.1k webradio → 48k via speex, verified clean 2026-07-10 |
+| **TTS conversion** | **`-R hLE` (soxr) inside squeezelite-announce** | Piper TTS is 22.05k mono; the plug/speex path made TTS **choppy** (bitten Jul 9-10). soxr outputs 48k so the device never changes rate. Costs ~13% idle CPU — affordable since the dead-service prune |
 | Converter quality | **`defaults.pcm.rate_converter "speexrate_medium"`** in asound.conf | without it libasound uses its built-in LINEAR interpolator → audible crackle on music |
 | Device lifetime | both clients hold ch0_dmix open 24/7 (**no `-C`**) | close/reopen can wedge dmix IPC (ENODEV loop) |
 
@@ -100,8 +101,13 @@ curl -X POST http://192.168.1.138/api/reboot
 - **PipeWire migration**: OS is Debian 10 armhf; dmix now has exactly two
   clients and one mix point. Risk ≫ benefit. Revisit only with a full OS
   rebuild.
-- **`-R` (soxr) inside squeezelite**: redundant now that plug uses speex; soxr
-  on the always-open Announce silence stream burned ~13% CPU continuously
-  (removed 2026-07-08).
+- ~~Removing `-R` (soxr) from squeezelite-announce~~ — **tried and REVERTED
+  (2026-07-10)**: without it, Piper's 22.05k mono TTS goes through plug/speex
+  and comes out choppy. The Jul 8 "verified fine without -R" was INVALID — the
+  running process still had the old flags; the flag-less config only took
+  effect at the Jul 9 06:53 restart, which is exactly when TTS turned bad.
+  Lesson: **after editing a unit file, verify against the RESTARTED process**
+  (`ps -eo cmd | grep squeezelite` must show the new flags).
+  General (radio) stays `-R`-less — plug/speex verified clean for music.
 - **48 kHz TTS generation**: openHAB TTS engines emit fixed formats; speex
   conversion of speech is transparent. Not worth engine surgery.
