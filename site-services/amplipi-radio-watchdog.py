@@ -91,27 +91,53 @@ def general_mode():
         return None
 
 
-def squeezelite_alsa_errors_recent():
-    """Count ALSA open errors in last 20 journal lines of squeezelite-general."""
+def unit_start_time(name):
+    """Local 'YYYY-MM-DD HH:MM:SS' when the unit last became active, or None."""
     try:
-        out = subprocess.run(
-            ["journalctl", "--user-unit", "squeezelite-general",
-             "-n", "20", "--no-pager", "-q"],
-            stdout=subprocess.PIPE, env=XDG_ENV, timeout=10
-        ).stdout.decode(errors="replace")
+        r = subprocess.run(["systemctl", "--user", "show", "-p",
+                            "ActiveEnterTimestamp", "--value", name],
+                           stdout=subprocess.PIPE, env=XDG_ENV, timeout=10)
+        parts = r.stdout.decode().strip().split()
+        # "Mon 2026-07-06 14:46:49 CEST" -> "2026-07-06 14:46:49"
+        if len(parts) >= 3:
+            return "%s %s" % (parts[1], parts[2])
+    except Exception:
+        pass
+    return None
+
+
+def squeezelite_alsa_errors_recent(unit):
+    """Count ALSA open errors in the last 20 journal lines of the CURRENT
+    incarnation of the given squeezelite unit.
+
+    v3.1: lines from before the unit's last start are excluded - after a real
+    recovery the plain 20-line window still contained pre-restart error lines,
+    which fired 1-2 unnecessary follow-up restarts (observed 2026-07-06
+    14:36/14:46).
+    v3.2: parameterized - announce shares the dmix and the same reopen failure
+    mode; it was previously unwatched (only unit-active was checked, and a
+    stuck client stays active while erroring)."""
+    try:
+        cmd = ["journalctl", "--user-unit", unit,
+               "-n", "20", "--no-pager", "-q"]
+        since = unit_start_time(unit)
+        if since:
+            cmd += ["--since", since]
+        out = subprocess.run(cmd, stdout=subprocess.PIPE, env=XDG_ENV,
+                             timeout=10).stdout.decode(errors="replace")
         return out.count("alsa_open")
     except Exception:
         return 0
 
 
-def restart_squeezelite_general():
-    """Restart squeezelite-general to clear a stuck ALSA dmix state."""
-    log("RECOVERY: restarting squeezelite-general (stuck ALSA state)")
-    subprocess.run(["systemctl", "--user", "restart", "squeezelite-general"],
+def restart_squeezelite_unit(unit):
+    """Restart a squeezelite unit to clear a stuck ALSA dmix state."""
+    log("RECOVERY: restarting %s (stuck ALSA state)" % unit)
+    subprocess.run(["systemctl", "--user", "restart", unit],
                    timeout=30, env=XDG_ENV)
     time.sleep(5)
     mode = general_mode()
-    log("RECOVERY: squeezelite-general restarted, LMS mode=%s" % mode)
+    log("RECOVERY: %s restarted, LMS mode=%s" % (unit, mode))
 
 
 def clean_restart_lms(was_playing):
@@ -134,10 +160,10 @@ def clean_restart_lms(was_playing):
 
 
 def main():
-    log("lms-health watchdog v3 started (cycle=%ss)" % CYCLE_S)
+    log("lms-health watchdog v3.2 started (cycle=%ss)" % CYCLE_S)
     time.sleep(60)  # boot grace
     last_recovery = 0.0
-    last_sq_recovery = 0.0
+    last_sq_recovery = {}
     while True:
         try:
             flood = flood_lines_recent()
@@ -163,15 +189,17 @@ def main():
             # squeezelite-general no longer uses -C 5, so this should be rare,
             # but if the dmix IPC goes stale (e.g. after amplipi restart or a
             # Pi hardware glitch), we auto-recover without touching LMS.
-            alsa_errors = squeezelite_alsa_errors_recent()
-            if alsa_errors >= 5:
-                log("PROBLEM: squeezelite-general ALSA stuck "
-                    "(%d alsa_open errors in last 20 lines)" % alsa_errors)
-                if time.time() - last_sq_recovery > COOLDOWN_S:
-                    restart_squeezelite_general()
-                    last_sq_recovery = time.time()
-                else:
-                    log("in squeezelite cooldown; skipping recovery")
+            for unit in ("squeezelite-general", "squeezelite-announce"):
+                alsa_errors = squeezelite_alsa_errors_recent(unit)
+                if alsa_errors >= 5:
+                    log("PROBLEM: %s ALSA stuck "
+                        "(%d alsa_open errors in last 20 lines)"
+                        % (unit, alsa_errors))
+                    if time.time() - last_sq_recovery.get(unit, 0.0) > COOLDOWN_S:
+                        restart_squeezelite_unit(unit)
+                        last_sq_recovery[unit] = time.time()
+                    else:
+                        log("in squeezelite cooldown; skipping recovery")
 
             for u in ("squeezelite-general", "squeezelite-announce"):
                 if not unit_active(u):
