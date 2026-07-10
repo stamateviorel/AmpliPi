@@ -56,16 +56,32 @@ AAC (conversion active); TTS mp3s are 44.1/22.05 k. Any config that loses the
 | 9 | Preamp I2C wedge (Errno 121) — zone control dead, audio fine | 2026-06-04 | `rt.py _recover_preamps()` self-heal |
 | 10 | ALSA config drift / hand edits lost | chronic | this repo mirrors `site-config/asound.conf` + units + watchdog; STRIPPED.md notes on-box |
 
-## Watchdog (v3.2) — what it checks every 60 s
+## Watchdog (v4 — SELF-HEALING) — what it does every 60 s
 
-1. LMS port-3483 flood ("Address already in use") → clean LMS restart
-2. Duplicate/orphan LMS perl processes → clean LMS restart
-3. `squeezelite-{general,announce}` unit-active (systemd should hold them)
-4. ALSA-stuck per unit: ≥5 `alsa_open` errors in the last 20 journal lines
-   **of the current incarnation** (`--since` unit start) → restart that unit
-   (10-min per-unit cooldown)
+Design rule: **every detectable problem has an automatic remediation**; mobile
+push (via openHAB item `AmpliPi_Watchdog_Alert` → `amplipi_watchdog_alerts.js`)
+is a *record* of what was auto-fixed, not a request for the owner to act.
+Only 🚨 `MANUAL:` lines mean human attention is needed.
 
-Script: `/home/pi/amplipi-radio-watchdog.py` (mirror: `site-services/`).
+| Check | Auto-remediation |
+|---|---|
+| 0. Canonical config drift (`/etc/asound.conf` + both unit files vs `/home/pi/audio-canonical/`) | restore canonical + daemon-reload + restart players. 3 restores/hour → 🚨 MANUAL + pause (something keeps rewriting) |
+| 1. LMS port-3483 flood | clean LMS restart (stop, pkill leftovers, start, resume play) |
+| 2. Duplicate/orphan LMS processes | same clean LMS restart |
+| 3. Player units not active | systemd Restart=always holds them; WARNING push if not |
+| 4. ALSA-stuck per unit (≥5 `alsa_open` errors, `--since`-filtered) | restart that unit (per-unit 10-min cooldown) |
+| 5. Synthetic chain probe every 5 min (1 s silence through ch0 at 44.1k — forces the speex converter to load, exercises plug→softvol→dmix→DAC, inaudible) | restart both players; still failing → 🚨 MANUAL |
+| 6. load1 > 3.0 or MemAvailable < 100 MB | WARNING push (new resource hogs, before they become audible) |
+
+Push dedupe: 15 min per identical text, 60 s global gap (RECOVERY lines exempt
+— fix-confirmations always reach the phone).
+
+**To change audio config intentionally**: edit the live file AND
+`cp` it over `/home/pi/audio-canonical/<file>` — otherwise the watchdog reverts
+it within 60 s (verified live 2026-07-10: drift → restored in 20 s).
+
+Script: `/home/pi/amplipi-radio-watchdog.py` (mirror: `site-services/`,
+canonicals mirrored in `site-config/audio-canonical/`).
 
 ## Recovery cheat-sheet
 
