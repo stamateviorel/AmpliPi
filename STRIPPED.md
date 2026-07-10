@@ -56,19 +56,13 @@ Passwordless (2026-06-10, third pass — incident-driven):
 - To re-enable password auth: restore stock bodies of set_password_hash (auth.py)
   + set_admin_password (updater/asgi.py) + unhide the form — AND give openHAB an
   authenticated path first (e.g. nginx cookie-injection of a dedicated api-type
-  user's access_key for <openhab-host> only), or zone control breaks again.
+  user's access_key for 192.168.1.181 only), or zone control breaks again.
 
-Direct-output architecture (2026-07-04):
-- The loopback/alsaloop layer is REMOVED from operation. Both players are
-  systemd user units in /home/pi/.config/systemd/user/ outputting straight
-  into the ch0 dmix: squeezelite-general.service (-o ch0, MAC 0d:b3:77:92:1f:4c)
-  and squeezelite-announce.service (-o ch0boost, MAC 0d:b3:77:92:1f:4d).
-- house.json: source 0 input="" and the General stream entry (id 1000) is
-  deleted so the amplipi app never spawns the old squeezelite->lb1c->alsaloop
-  chain (same-MAC collision). The app only does zone/preamp control, display,
-  updater. ch0_dmix rate pinned to 48000.
-- Watchdog: /home/pi/amplipi-radio-watchdog.py (radio-watchdog.service) = LMS
-  health (port-3483 flood / dup-orphan server -> clean restart). The old
-  alsaloop-resync.service is disabled. Logrotate for LMS uses copytruncate
-  (a postrotate USR1 once killed the wrapper -> half-dead LMS -> silent
-  burglar siren, 2026-07-04).
+Audio "once and for all" pass (2026-07-10):
+- /etc/asound.conf rewritten MINIMAL (backup: asound.conf.bak-20260710-full-with-loopbacks):
+  only ch0 + ch0boost + ch0_dmix(48k) on hifiberry remain; loopbacks/usb71/dmixer/ch1-3 deleted.
+- defaults.pcm.rate_converter speexrate_medium — fixes crackle on 44.1k stations
+  (libasound default is LINEAR; bit us when radio moved from 48k VRT to 44.1k OWR).
+- snd-aloop removed from /etc/modules (6 phantom loopback cards; unloads at reboot).
+- radio-watchdog v3.2: ALSA-stuck check now covers BOTH squeezelite units, --since-filtered.
+- Docs + mirrors: /home/openhab/work/amplipi-rebase (AUDIO_ARCHITECTURE.md, site-config/, site-services/).
