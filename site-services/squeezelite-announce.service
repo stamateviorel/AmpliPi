@@ -4,9 +4,13 @@ After=network.target logitechmediaserver.service
 
 [Service]
 Type=simple
-# Outputs to ch0 (downstream of the radio's lb1c) so it mixes with the radio at
-# ch0_dmix and never evicts the radio. Fixed MAC = stable LMS/openHAB player id.
-ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45 -R hLE
+# Force output to the DAC/ch0_dmix rate (48kHz) and let squeezelite soxr do the ONE
+# resample + mono->stereo: -r 48000 -R hLE. Proven 2026-07-13: a 48kHz-stereo signal
+# plays perfectly clean through this chain, but letting squeezelite output the TTS at
+# its native 44.1kHz mono made the ALSA plug do 44.1->48 + mono->stereo, which chopped
+# ("helicopter"). Radio is clean because 44.1k stations are already 48k-friendly stereo.
+# -r 48000 pins the output rate so there is no dmix mismatch / double resample.
+ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45 -r 48000 -R hLE
 Restart=always
 RestartSec=3
 
