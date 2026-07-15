@@ -4,13 +4,13 @@ After=network.target logitechmediaserver.service
 
 [Service]
 Type=simple
-# Force output to the DAC/ch0_dmix rate (48kHz) and let squeezelite soxr do the ONE
-# resample + mono->stereo: -r 48000 -R hLE. Proven 2026-07-13: a 48kHz-stereo signal
-# plays perfectly clean through this chain, but letting squeezelite output the TTS at
-# its native 44.1kHz mono made the ALSA plug do 44.1->48 + mono->stereo, which chopped
-# ("helicopter"). Radio is clean because 44.1k stations are already 48k-friendly stereo.
-# -r 48000 pins the output rate so there is no dmix mismatch / double resample.
-ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45 -r 48000 -R hLE
+# Force ONE clean soxr resample to the DAC's 48kHz. CRITICAL: recipe is -R hLX, NOT hLE.
+# The 'E' (exception) flag = "resample ONLY IF native rate not supported" — on the ch0boost
+# PLUG (accepts any rate) squeezelite intermittently judged the 44.1kHz TTS "supported",
+# SKIPPED its own resample, and dumped raw 44.1kHz mono onto the ALSA plug -> plug's
+# mono+resample chopped it ("helicopter", intermittent). 'X' (async) ALWAYS resamples to
+# the device rate (48000, pinned by -r 48000) — unconditional + reliable. (2026-07-15)
+ExecStart=/usr/bin/squeezelite -n Announce -o ch0boost -m 0d:b3:77:92:1f:4d -s 127.0.0.1 -a 300:8:: -p 45 -r 48000 -R hLX
 Restart=always
 RestartSec=3
 
